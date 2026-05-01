@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   const verifyUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;
+  console.log("[magic-link] sending verify URL:", verifyUrl);
 
   const { error: emailError } = await resend.emails.send({
     from: "AIM Method <noreply@aimodelmethods.com>",
