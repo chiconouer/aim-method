@@ -36,16 +36,28 @@ export async function GET(req: NextRequest) {
   // Delete token — one-time use
   await supabaseAdmin.from("magic_links").delete().eq("token", token);
 
-  const sessionValue = Buffer.from(
+  const response = NextResponse.redirect("https://course.aimodelmethods.com/dashboard");
+
+  // HttpOnly cookie used by middleware to guard /dashboard routes
+  response.cookies.set("aim_session", user.email, {
+    path: "/",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 7,
+    httpOnly: true,
+    secure: true,
+  });
+
+  // Non-httpOnly cookie read by client-side getSession() for display (name + email)
+  const userInfo = Buffer.from(
     JSON.stringify({ email: user.email, name: user.name ?? "Student" })
   ).toString("base64");
 
-  const response = NextResponse.redirect(new URL("/dashboard", req.url));
-  response.cookies.set("aim_session", sessionValue, {
+  response.cookies.set("aim_user", userInfo, {
     path: "/",
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7,
     httpOnly: false,
+    secure: true,
   });
 
   return response;

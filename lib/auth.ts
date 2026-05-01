@@ -12,7 +12,8 @@ export function setSession(user: User): void {
 
 export function signOut(): void {
   localStorage.removeItem(SESSION_KEY);
-  document.cookie = "aim_session=; path=/; max-age=0";
+  document.cookie = "aim_session=; path=/; max-age=0; secure; samesite=lax";
+  document.cookie = "aim_user=; path=/; max-age=0; secure; samesite=lax";
 }
 
 export function getSession(): User | null {
@@ -24,8 +25,8 @@ export function getSession(): User | null {
     try { return JSON.parse(raw) as User; } catch { localStorage.removeItem(SESSION_KEY); }
   }
 
-  // Fall back to cookie set by the verify route
-  const match = document.cookie.split(";").find(c => c.trim().startsWith("aim_session="));
+  // Fall back to aim_user cookie set by the verify route (non-httpOnly, contains email+name)
+  const match = document.cookie.split(";").find(c => c.trim().startsWith("aim_user="));
   if (match) {
     try {
       const b64 = match.trim().split("=").slice(1).join("=");
