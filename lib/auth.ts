@@ -12,17 +12,31 @@ export function setSession(user: User): void {
 
 export function signOut(): void {
   localStorage.removeItem(SESSION_KEY);
+  document.cookie = "aim_session=; path=/; max-age=0";
 }
 
 export function getSession(): User | null {
   if (typeof window === "undefined") return null;
+
+  // Check localStorage first
   const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as User;
-  } catch {
-    return null;
+  if (raw) {
+    try { return JSON.parse(raw) as User; } catch { localStorage.removeItem(SESSION_KEY); }
   }
+
+  // Fall back to cookie set by the verify route
+  const match = document.cookie.split(";").find(c => c.trim().startsWith("aim_session="));
+  if (match) {
+    try {
+      const b64 = match.trim().split("=").slice(1).join("=");
+      const user = JSON.parse(atob(b64)) as User;
+      // Sync to localStorage for subsequent reads
+      localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+      return user;
+    } catch {}
+  }
+
+  return null;
 }
 
 export function isAuthenticated(): boolean {
