@@ -49,10 +49,7 @@ export async function POST(req: NextRequest) {
         <p style="color: #d1d5db; font-size: 15px; margin-bottom: 32px;">
           Hi ${user.name}, click the button below to sign in. This link expires in 15 minutes and can only be used once.
         </p>
-        <a href="${verifyUrl}"
-           style="display: inline-block; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: #ffffff; font-weight: bold; font-size: 15px; padding: 14px 32px; border-radius: 10px; text-decoration: none;">
-          Sign In to Your Course →
-        </a>
+        <a href="${verifyUrl}" style="display:inline-block;background-color:#8b5cf6;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">Sign in to your course</a>
         <p style="color: #6b7280; font-size: 13px; margin-top: 32px;">
           If you didn't request this, you can safely ignore this email.
         </p>
