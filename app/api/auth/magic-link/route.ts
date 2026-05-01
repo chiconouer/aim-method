@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
           Hi ${user.name}, click the button below to sign in. This link expires in 15 minutes and can only be used once.
         </p>
         <a href="${verifyUrl}" style="display:inline-block;background-color:#8b5cf6;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">Sign in to your course</a>
+        <br>
+        <a href="https://discord.gg/9ZdNpbbfC" style="display:inline-block;background-color:#5865F2;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;margin-top:12px;">💬 Join Our Community on Discord</a>
         <p style="color: #6b7280; font-size: 13px; margin-top: 32px;">
           If you didn't request this, you can safely ignore this email.
         </p>

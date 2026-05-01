@@ -75,6 +75,8 @@ export async function POST(req: NextRequest) {
           Hi ${firstName}, your purchase was successful. Click the button below to access your course — no password needed.
         </p>
         <a href="${loginUrl}" style="display:inline-block;background-color:#8b5cf6;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">Access Your Course</a>
+        <br>
+        <a href="https://discord.gg/9ZdNpbbfC" style="display:inline-block;background-color:#5865F2;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;margin-top:12px;">💬 Join Our Community on Discord</a>
         <p style="color:#9ca3af;font-size:14px;margin-top:32px;">
           To sign in again later, visit
           <a href="https://course.aimodelmethods.com/auth/sign-in" style="color:#a78bfa;">course.aimodelmethods.com/auth/sign-in</a>
