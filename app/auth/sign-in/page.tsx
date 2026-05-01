@@ -3,7 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "@/lib/auth";
+import { setSession } from "@/lib/auth";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -16,11 +16,26 @@ export default function SignInPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const user = signIn(email, password);
-    if (user) {
+
+    try {
+      const res = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Invalid email or password.");
+        setLoading(false);
+        return;
+      }
+
+      setSession({ email: data.email, name: data.name });
       router.push("/dashboard");
-    } else {
-      setError("Invalid email or password.");
+    } catch {
+      setError("Something went wrong. Please try again.");
       setLoading(false);
     }
   }

@@ -1,23 +1,13 @@
 const SESSION_KEY = "aim_session";
 const PROGRESS_KEY = "aim_progress";
 
-const USERS = [
-  { email: "test@aimmethod.com", password: "test123", name: "Student" },
-];
-
 export interface User {
   email: string;
   name: string;
 }
 
-export function signIn(email: string, password: string): User | null {
-  const user = USERS.find(
-    (u) => u.email === email && u.password === password
-  );
-  if (!user) return null;
-  const session: User = { email: user.email, name: user.name };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
+export function setSession(user: User): void {
+  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
 }
 
 export function signOut(): void {
