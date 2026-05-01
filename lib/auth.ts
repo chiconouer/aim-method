@@ -22,7 +22,14 @@ export function getSession(): User | null {
   // Check localStorage first
   const raw = localStorage.getItem(SESSION_KEY);
   if (raw) {
-    try { return JSON.parse(raw) as User; } catch { localStorage.removeItem(SESSION_KEY); }
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed?.email) return parsed as User;
+    } catch {
+      // Plain email string stored as fallback by callback page
+      if (raw.includes("@")) return { email: raw, name: "Student" };
+      localStorage.removeItem(SESSION_KEY);
+    }
   }
 
   // Fall back to aim_user cookie set by the verify route (non-httpOnly, contains email+name)

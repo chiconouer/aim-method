@@ -43,9 +43,20 @@ export async function GET(req: NextRequest) {
   // Delete token — one-time use
   await supabaseAdmin.from("magic_links").delete().eq("token", token);
 
-  const response = NextResponse.redirect("https://course.aimodelmethods.com/dashboard");
+  const userInfo = Buffer.from(
+    JSON.stringify({ email: user.email, name: user.name ?? "Student" })
+  ).toString("base64");
 
-  // HttpOnly cookie used by middleware to guard /dashboard routes
+  // Redirect to callback page — passes session in URL so the client page can write
+  // it to localStorage. This ensures mobile browsers (where cookies from redirect
+  // chains are sometimes dropped) still get a working session.
+  const callbackUrl = new URL("https://course.aimodelmethods.com/auth/callback");
+  callbackUrl.searchParams.set("email", user.email);
+  callbackUrl.searchParams.set("session", userInfo);
+
+  const response = NextResponse.redirect(callbackUrl.toString());
+
+  // HttpOnly cookie for middleware (desktop browsers, reliable cookie handling)
   response.cookies.set("aim_session", user.email, {
     path: "/",
     sameSite: "lax",
@@ -54,11 +65,7 @@ export async function GET(req: NextRequest) {
     secure: true,
   });
 
-  // Non-httpOnly cookie read by client-side getSession() for display (name + email)
-  const userInfo = Buffer.from(
-    JSON.stringify({ email: user.email, name: user.name ?? "Student" })
-  ).toString("base64");
-
+  // Non-httpOnly cookie as middleware fallback (checked when aim_session is absent)
   response.cookies.set("aim_user", userInfo, {
     path: "/",
     sameSite: "lax",
