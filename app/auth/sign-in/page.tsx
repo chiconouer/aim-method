@@ -54,11 +54,12 @@ function SignInContent() {
 
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
+          <Link href="/" className="inline-flex flex-col items-center leading-none gap-1">
             <span className="text-2xl font-extrabold">
               <span className="text-white">AIM</span>{" "}
               <span className="text-purple-400">Method</span>
             </span>
+            <span className="text-gray-500 text-xs font-medium">@chiconouer</span>
           </Link>
           <p className="text-gray-500 text-sm mt-2">
             Sign in to access your courses

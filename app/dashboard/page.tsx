@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getSession, signOut, getModuleProgress, User } from "@/lib/auth";
+import { getSession, getModuleProgress, User } from "@/lib/auth";
 import { MODULES } from "@/lib/courseData";
 
 export default function DashboardPage() {
@@ -27,34 +27,10 @@ export default function DashboardPage() {
     setProgress(prog);
   }, [router]);
 
-  function handleSignOut() {
-    signOut();
-    router.push("/");
-  }
-
   if (!user) return null;
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-5 py-4 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
-        <Link href="/" className="text-xl font-bold tracking-tight">
-          <span className="text-white">AIM</span>{" "}
-          <span className="text-purple-400">Method</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <span className="text-gray-400 text-sm hidden sm:block">
-            👋 {user.name}
-          </span>
-          <button
-            onClick={handleSignOut}
-            className="text-gray-500 hover:text-white text-sm transition-colors px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20"
-          >
-            Sign Out
-          </button>
-        </div>
-      </nav>
-
       {/* Content */}
       <main className="max-w-6xl mx-auto px-5 py-10">
         {/* Welcome */}

@@ -53,21 +53,6 @@ export default function ModulePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-5 py-4 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
-        <Link href="/" className="text-xl font-bold tracking-tight flex-shrink-0">
-          <span className="text-white">AIM</span>{" "}
-          <span className="text-purple-400">Method</span>
-        </Link>
-        <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide">
-          <Link href="/dashboard" className="text-gray-500 hover:text-white transition-colors whitespace-nowrap">
-            Dashboard
-          </Link>
-          <span className="text-gray-700">/</span>
-          <span className="text-white font-semibold whitespace-nowrap">{mod.title}</span>
-        </div>
-      </nav>
-
       <main className="max-w-3xl mx-auto px-5 py-10">
         {/* Header */}
         <div className="mb-8">

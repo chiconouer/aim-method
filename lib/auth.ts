@@ -6,16 +6,6 @@ export interface User {
   name: string;
 }
 
-export function setSession(user: User): void {
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
-}
-
-export function signOut(): void {
-  localStorage.removeItem(SESSION_KEY);
-  document.cookie = "aim_session=; path=/; max-age=0; secure; samesite=lax";
-  document.cookie = "aim_user=; path=/; max-age=0; secure; samesite=lax";
-}
-
 export function getSession(): User | null {
   if (typeof window === "undefined") return null;
 
@@ -45,10 +35,6 @@ export function getSession(): User | null {
   }
 
   return null;
-}
-
-export function isAuthenticated(): boolean {
-  return getSession() !== null;
 }
 
 export function getProgress(): Record<string, boolean> {

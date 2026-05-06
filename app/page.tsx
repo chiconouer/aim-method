@@ -1,7 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { getSession } from "@/lib/auth";
 
 const MODELS = [
   {
@@ -22,25 +25,14 @@ const MODELS = [
     earnings: "$14,300/month",
     stats: "215K followers • 67K likes",
   },
+  {
+    image: "/model4.jpg",
+    name: "Sadie",
+    earnings: "$27,450/month",
+    stats: "347K followers",
+  },
 ];
 
-const FEATURES = [
-  {
-    icon: "🚀",
-    title: "No Experience Needed",
-    desc: "Start from zero with step-by-step guidance through every stage.",
-  },
-  {
-    icon: "🕶️",
-    title: "Full Anonymity",
-    desc: "Build a profitable AI model without ever showing your face.",
-  },
-  {
-    icon: "💰",
-    title: "Proven System",
-    desc: "The exact method used to generate $10K+/month consistently.",
-  },
-];
 
 const REVIEWS = [
   {
@@ -61,151 +53,93 @@ const REVIEWS = [
   },
 ];
 
-export default function Home() {
+function HomeContent() {
+  const router = useRouter();
+
+  async function handleCourseNav() {
+    const session = getSession();
+    if (!session) {
+      router.push("/auth/sign-in");
+      return;
+    }
+    const hasCookie = document.cookie.split(";").some(c => c.trim().startsWith("aim_user="));
+    if (hasCookie) {
+      router.push("/dashboard");
+      return;
+    }
+    try {
+      const res = await fetch("/api/auth/restore-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session: localStorage.getItem("aim_session") }),
+      });
+      if (res.ok) router.push("/dashboard");
+    } catch {}
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* NAVBAR */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-4 bg-[#0a0a0a]/80 backdrop-blur-md border-b border-white/5">
-        <Link href="/" className="text-xl font-bold tracking-tight">
-          <span className="text-white">AIM</span>{" "}
-          <span className="text-purple-400">Method</span>
+        <Link href="/" className="flex flex-col leading-none">
+          <span className="text-xl font-bold tracking-tight">
+            <span className="text-white">AIM</span>{" "}
+            <span className="text-purple-400">Method</span>
+          </span>
+          <span className="text-gray-500 text-xs font-medium">@chiconouer</span>
         </Link>
         <div className="hidden sm:flex items-center gap-8">
           <a href="#models" className="text-white hover:text-purple-400 transition-colors text-sm">Model Examples</a>
           <a href="#about" className="text-white hover:text-purple-400 transition-colors text-sm">About</a>
           <a href="#reviews" className="text-white hover:text-purple-400 transition-colors text-sm">Reviews</a>
         </div>
-        <Link
-          href="/auth/sign-in"
-          className="purple-btn text-white text-sm font-semibold px-5 py-2 rounded-lg"
+        <a
+          href="/dashboard/store"
+          className="bg-[#8b5cf6] hover:bg-purple-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors whitespace-nowrap"
         >
-          Sign In
-        </Link>
+          🤖 AI Model Store
+        </a>
       </nav>
 
       {/* HERO */}
-      <section
-        style={{
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          gap: "12px",
-          background: "#0a0a0a",
-          paddingTop: "64px",
-          paddingBottom: "16px",
-          boxSizing: "border-box",
-          overflow: "hidden",
-        }}
-      >
-        {/* Radial glow behind model */}
-        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "800px", height: "800px", background: "radial-gradient(circle, rgba(139,92,246,0.15) 0%, rgba(109,40,217,0.04) 50%, transparent 70%)", zIndex: 0, pointerEvents: "none" }} />
-
-        {/* Wide soft light sweep 1 */}
-        <div style={{ position: "absolute", left: "-10%", top: "-50%", width: "60%", height: "300%", background: "linear-gradient(to right, transparent 0%, rgba(139,92,246,0.07) 40%, rgba(139,92,246,0.12) 50%, rgba(139,92,246,0.07) 60%, transparent 100%)", transform: "rotate(35deg)", opacity: 0.3, zIndex: 0, pointerEvents: "none" }} />
-
-        {/* Wide soft light sweep 2 */}
-        <div style={{ position: "absolute", right: "-10%", top: "-50%", width: "60%", height: "300%", background: "linear-gradient(to right, transparent 0%, rgba(139,92,246,0.07) 40%, rgba(139,92,246,0.12) 50%, rgba(139,92,246,0.07) 60%, transparent 100%)", transform: "rotate(-35deg)", opacity: 0.3, zIndex: 0, pointerEvents: "none" }} />
-
-        {/* Floating particles */}
-        {[
-          { left: "5%",  top: "80%", color: "#8b5cf6", dur: "6s",  delay: "0s",    op: 0.5 },
-          { left: "12%", top: "65%", color: "#a78bfa", dur: "9s",  delay: "1.2s",  op: 0.4 },
-          { left: "7%",  top: "50%", color: "#8b5cf6", dur: "7s",  delay: "2.5s",  op: 0.6 },
-          { left: "18%", top: "90%", color: "#a78bfa", dur: "11s", delay: "0.5s",  op: 0.3 },
-          { left: "25%", top: "70%", color: "#8b5cf6", dur: "5s",  delay: "3.1s",  op: 0.5 },
-          { left: "3%",  top: "35%", color: "#a78bfa", dur: "8s",  delay: "1.8s",  op: 0.4 },
-          { left: "15%", top: "20%", color: "#8b5cf6", dur: "10s", delay: "0.3s",  op: 0.3 },
-          { left: "30%", top: "45%", color: "#a78bfa", dur: "6s",  delay: "4.0s",  op: 0.5 },
-          { left: "22%", top: "88%", color: "#8b5cf6", dur: "12s", delay: "2.0s",  op: 0.4 },
-          { left: "9%",  top: "15%", color: "#a78bfa", dur: "7s",  delay: "3.5s",  op: 0.6 },
-          { left: "75%", top: "75%", color: "#8b5cf6", dur: "9s",  delay: "0.8s",  op: 0.5 },
-          { left: "88%", top: "60%", color: "#a78bfa", dur: "6s",  delay: "2.2s",  op: 0.4 },
-          { left: "93%", top: "40%", color: "#8b5cf6", dur: "8s",  delay: "1.5s",  op: 0.3 },
-          { left: "82%", top: "85%", color: "#a78bfa", dur: "11s", delay: "3.8s",  op: 0.6 },
-          { left: "70%", top: "55%", color: "#8b5cf6", dur: "5s",  delay: "0.2s",  op: 0.5 },
-          { left: "96%", top: "25%", color: "#a78bfa", dur: "10s", delay: "2.7s",  op: 0.4 },
-          { left: "78%", top: "18%", color: "#8b5cf6", dur: "7s",  delay: "4.3s",  op: 0.3 },
-          { left: "65%", top: "92%", color: "#a78bfa", dur: "12s", delay: "1.0s",  op: 0.5 },
-          { left: "85%", top: "10%", color: "#8b5cf6", dur: "6s",  delay: "3.3s",  op: 0.4 },
-          { left: "60%", top: "70%", color: "#a78bfa", dur: "9s",  delay: "0.6s",  op: 0.6 },
-        ].map((p, i) => (
-          <div key={i} style={{ position: "absolute", left: p.left, top: p.top, width: "3px", height: "3px", borderRadius: "50%", background: p.color, opacity: p.op, zIndex: 0, pointerEvents: "none", animation: `float ${p.dur} ${p.delay} ease-in-out infinite` }} />
-        ))}
-
-        {/* Model image */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/hero-model-v2.png"
-          alt="AI Model"
-          style={{
-            maxHeight: "65vh",
-            width: "auto",
-            maxWidth: "90vw",
-            display: "block",
-            mixBlendMode: "screen",
-            position: "relative",
-            zIndex: 1,
-          }}
-        />
-
-        <p className="text-gray-300 text-sm sm:text-base text-center max-w-sm leading-relaxed px-5" style={{ position: "relative", zIndex: 2 }}>
-          The exact system to create AI Models that make money
-        </p>
-
-        <div className="flex gap-3" style={{ position: "relative", zIndex: 2 }}>
-          <Link
-            href="/auth/sign-in"
-            className="purple-btn text-white font-bold px-6 py-3 rounded-xl text-sm"
-          >
-            Explore Courses
-          </Link>
-          <Link
-            href="/auth/sign-in"
-            className="outline-btn font-bold px-6 py-3 rounded-xl text-sm"
-          >
-            Sign In
-          </Link>
-        </div>
-
-      </section>
-
-      {/* AI MODELS SHOWCASE */}
-      <section id="models" className="py-20 px-5">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-purple-400 text-sm font-semibold uppercase tracking-widest mb-2">
-              Real Results
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              AI Models Our Students Built
-            </h2>
+      <section className="min-h-screen flex flex-col justify-center px-5 pt-24 pb-12 bg-[#0a0a0a]">
+        <div className="max-w-6xl mx-auto w-full">
+          <div className="mb-5">
+            <span className="inline-block bg-purple-900/30 border border-purple-700/40 text-purple-400 text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full">
+              AI Model Method
+            </span>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <h1 className="text-4xl sm:text-6xl font-black text-white leading-tight tracking-tight mb-4">
+            Your AI model.<br />
+            <span className="text-purple-400">Your income.</span>
+          </h1>
+          <p className="text-gray-500 text-base sm:text-lg leading-relaxed mb-8 max-w-lg">
+            Build faceless AI influencers that make money 24/7 — no camera, no followers, no experience needed.
+          </p>
+          <button
+            onClick={handleCourseNav}
+            className="inline-block purple-btn text-white font-bold text-base px-8 py-4 rounded-xl mb-12"
+          >
+            Explore Courses →
+          </button>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {MODELS.map((model) => (
               <div
                 key={model.name}
-                className="glass-card card-hover rounded-2xl overflow-hidden"
+                className="relative rounded-2xl overflow-hidden aspect-[3/4]"
               >
-                <div className="relative h-72 sm:h-80">
-                  <Image
-                    src={model.image}
-                    alt={model.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 640px) 100vw, 33vw"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <p className="text-white font-bold text-lg">{model.name}</p>
-                    <p className="text-purple-300 font-bold text-base">
-                      {model.earnings}
-                    </p>
-                    <p className="text-gray-400 text-xs mt-0.5">{model.stats}</p>
-                  </div>
+                <Image
+                  src={model.image}
+                  alt={model.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 50vw, 25vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+                <div className="absolute bottom-3 left-3 right-3">
+                  <p className="text-white font-bold text-sm leading-tight">{model.name}</p>
+                  <p className="text-purple-400 font-bold text-xs">{model.earnings}</p>
+                  <p className="text-gray-400 text-xs mt-0.5">{model.stats}</p>
                 </div>
               </div>
             ))}
@@ -213,29 +147,58 @@ export default function Home() {
         </div>
       </section>
 
-      {/* WHY CHOOSE AIM METHOD */}
-      <section id="about" className="py-20 px-5 bg-white/[0.02]">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <p className="text-purple-400 text-sm font-semibold uppercase tracking-widest mb-2">
-              Why AIM Method
-            </p>
-            <h2 className="text-3xl sm:text-4xl font-bold">
-              Everything You Need to Succeed
-            </h2>
-          </div>
+      {/* AI MODEL STORE BANNER */}
+      <section id="about" className="py-20 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative overflow-hidden rounded-2xl bg-[#0a0a0a] border border-[#222] px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8">
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="glass-card card-hover rounded-2xl p-7 text-center"
-              >
-                <div className="text-4xl mb-4">{f.icon}</div>
-                <h3 className="text-lg font-bold text-white mb-2">{f.title}</h3>
-                <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
+            {/* Purple glow */}
+            <div className="absolute -top-16 -right-16 w-60 h-60 rounded-full bg-purple-700/20 blur-3xl pointer-events-none" />
+
+            {/* Left side */}
+            <div className="relative z-10 flex-1">
+              <span className="inline-block mb-4 px-3 py-1 rounded-full text-xs font-medium tracking-widest uppercase bg-purple-900/30 border border-purple-700/40 text-purple-400">
+                New — AI Model Store
+              </span>
+              <h2 className="text-3xl font-bold text-white leading-snug mb-3">
+                The best AI models,{" "}
+                <span className="text-purple-400">ready to make money</span>
+              </h2>
+              <p className="text-sm text-gray-400 leading-relaxed mb-6 max-w-md">
+                Skip the hardest part of the course. Get a fully built AI model — already created and ready to post on Instagram.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <a
+                  href="/dashboard/store"
+                  className="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-600 transition-colors text-white text-sm font-semibold px-5 py-3 rounded-lg"
+                >
+                  View Ready AI Models →
+                </a>
+                <a
+                  href="/dashboard/store"
+                  className="inline-flex items-center gap-2 border border-purple-900 hover:border-purple-700 transition-colors text-purple-400 text-sm font-medium px-5 py-3 rounded-lg"
+                >
+                  Learn more
+                </a>
               </div>
-            ))}
+            </div>
+
+            {/* Right side - stats */}
+            <div className="relative z-10 flex flex-col gap-3 min-w-[160px]">
+              <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4">
+                <div className="text-lg font-bold text-purple-400">3–5 days</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">saved on model creation</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4">
+                <div className="text-lg font-bold text-purple-400">100% unique</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">sold to one student only</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4">
+                <div className="text-lg font-bold text-purple-400">Ready to post</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">no editing required</div>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -284,12 +247,12 @@ export default function Home() {
           <p className="text-gray-400 mb-8 text-base sm:text-lg">
             Join hundreds of students already building their AI model business.
           </p>
-          <Link
-            href="/auth/sign-in"
-            className="purple-btn text-white font-bold px-10 py-4 rounded-xl text-lg inline-block"
+          <button
+            onClick={handleCourseNav}
+            className="purple-btn text-white font-bold px-10 py-4 rounded-xl text-lg"
           >
             Explore Courses
-          </Link>
+          </button>
         </div>
       </section>
 
@@ -298,5 +261,13 @@ export default function Home() {
         © 2026 AIM Method. All rights reserved.
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }

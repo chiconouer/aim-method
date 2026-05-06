@@ -19,8 +19,11 @@ function CallbackContent() {
     try {
       // Decode the base64 session to get {email, name}
       const user = JSON.parse(atob(session));
-      // Write full user object so getSession() can parse it correctly
-      localStorage.setItem("aim_session", JSON.stringify(user));
+      const value = JSON.stringify(user);
+      localStorage.setItem("aim_session", value);
+      // Set cookie directly from the page — Safari drops cookies set via server redirects,
+      // so this ensures aim_user is present before navigating to /dashboard.
+      document.cookie = `aim_user=${session}; max-age=2592000; path=/; SameSite=Lax; Secure`;
     } catch {
       // Fallback: store just the email — getSession() handles this case
       localStorage.setItem("aim_session", email);

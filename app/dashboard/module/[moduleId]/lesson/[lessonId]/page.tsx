@@ -55,25 +55,6 @@ export default function LessonPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Navbar */}
-      <nav className="sticky top-0 z-50 flex items-center justify-between px-5 py-4 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
-        <Link href="/" className="text-xl font-bold tracking-tight flex-shrink-0">
-          <span className="text-white">AIM</span>{" "}
-          <span className="text-purple-400">Method</span>
-        </Link>
-        <div className="flex items-center gap-2 text-sm overflow-x-auto scrollbar-hide ml-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-white transition-colors whitespace-nowrap">
-            Dashboard
-          </Link>
-          <span className="text-gray-700">/</span>
-          <Link href={`/dashboard/module/${moduleId}`} className="text-gray-500 hover:text-white transition-colors whitespace-nowrap">
-            {mod.title}
-          </Link>
-          <span className="text-gray-700">/</span>
-          <span className="text-white font-semibold whitespace-nowrap">{lesson.title}</span>
-        </div>
-      </nav>
-
       <main className="max-w-3xl mx-auto px-5 py-8">
         {/* Lesson header */}
         <div className="mb-6">
@@ -111,6 +92,23 @@ export default function LessonPage() {
             </div>
           )}
         </div>
+
+        {/* Resource link (e.g. NSFW content examples for M4L4) */}
+        {lesson.resourceLink && (
+          <div className="text-center mb-6">
+            <a
+              href={lesson.resourceLink.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block bg-[#8b5cf6] text-white font-bold px-8 py-3 rounded-xl text-sm hover:bg-purple-500 transition-colors"
+            >
+              {lesson.resourceLink.label}
+            </a>
+            {lesson.resourceLink.warning && (
+              <p className="text-gray-500 text-xs mt-2">{lesson.resourceLink.warning}</p>
+            )}
+          </div>
+        )}
 
         {/* Progress tracker */}
         <div className="glass-card rounded-2xl p-5 mb-6">

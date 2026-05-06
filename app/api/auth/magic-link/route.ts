@@ -37,24 +37,46 @@ export async function POST(req: NextRequest) {
   }
 
   const verifyUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;
-  console.log("[magic-link] sending verify URL:", verifyUrl);
 
   const { error: emailError } = await resend.emails.send({
     from: "AIM Method <noreply@aimodelmethods.com>",
     to: normalizedEmail,
     subject: "Your AIM Method Login Link",
     html: `
-      <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; background: #0a0a0a; color: #ffffff; padding: 40px 32px; border-radius: 16px;">
-        <h1 style="color: #8b5cf6; font-size: 24px; margin-bottom: 8px;">Sign in to AIM Method</h1>
-        <p style="color: #d1d5db; font-size: 15px; margin-bottom: 32px;">
-          Hi ${user.name}, click the button below to sign in. This link expires in 15 minutes and can only be used once.
-        </p>
-        <a href="${verifyUrl}" style="display:inline-block;background-color:#8b5cf6;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;">Sign in to your course</a>
-        <br>
-        <a href="https://discord.gg/9ZdNpbbfC" style="display:inline-block;background-color:#5865F2;color:white;padding:14px 32px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;margin-top:12px;">💬 Join Our Community on Discord</a>
-        <p style="color: #6b7280; font-size: 13px; margin-top: 32px;">
-          If you didn't request this, you can safely ignore this email.
-        </p>
+      <span style="display:none;font-size:1px;max-height:0;overflow:hidden;opacity:0;">Click here to access your AIM Method course</span>
+      <div style="background-color:#0a0a0a;padding:48px 20px;font-family:sans-serif;">
+        <div style="max-width:520px;margin:0 auto;">
+
+          <div style="text-align:center;margin-bottom:32px;">
+            <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AIM</span>
+            <span style="font-size:22px;font-weight:800;color:#8b5cf6;letter-spacing:-0.5px;"> Method</span>
+          </div>
+
+          <div style="background-color:#111111;border:1px solid #222222;border-radius:16px;overflow:hidden;">
+            <div style="height:3px;background-color:#8b5cf6;"></div>
+            <div style="padding:40px 36px;">
+
+              <h1 style="font-size:24px;font-weight:800;color:#8b5cf6;margin:0 0 6px;">Your Login Link</h1>
+              <p style="font-size:15px;color:#9ca3af;margin:0 0 32px;">Hi ${user.name}, click below to sign in. This link expires in <strong style="color:#ffffff;">15 minutes</strong> and can only be used once.</p>
+
+              <div style="text-align:center;">
+                <a href="${verifyUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-bottom:12px;">Access Your Course →</a>
+                <br>
+                <a href="https://discord.gg/9ZdNpbbfC" style="display:inline-block;background-color:#5865F2;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-top:12px;">💬 Join Our Community on Discord</a>
+              </div>
+
+              <div style="border-top:1px solid #222222;margin-top:40px;padding-top:24px;">
+                <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.6;">
+                  If you didn't request this link, you can safely ignore this email. It will expire on its own.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          <p style="text-align:center;font-size:12px;color:#374151;margin-top:28px;">© 2025 AIM Method · All rights reserved</p>
+
+        </div>
       </div>
     `,
   });
