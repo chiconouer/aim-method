@@ -111,5 +111,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to send welcome email." }, { status: 500 });
   }
 
+  const transactionId =
+    body?.data?.purchase?.transaction ??
+    body?.data?.purchase?.transaction_id ??
+    body?.data?.purchase?.id ??
+    body?.data?.transaction;
+
+  if (!transactionId) {
+    console.error("Hotmart sales insert skipped: missing transaction id.");
+  } else {
+    const rawAmount = Number(body?.data?.purchase?.price?.value ?? 0);
+    const amountCents = Math.round(rawAmount * 100);
+    const occurredAt = body?.data?.purchase?.approved_date ?? new Date().toISOString();
+
+    const { error: salesInsertError } = await supabaseAdmin.from("sales").upsert(
+      {
+        hotmart_transaction_id: String(transactionId),
+        buyer_name: body?.data?.buyer?.name ?? null,
+        buyer_email: normalizedEmail,
+        amount_cents: amountCents,
+        currency: body?.data?.purchase?.price?.currency_code ?? "USD",
+        product_name: body?.data?.product?.name ?? null,
+        status: "approved",
+        occurred_at: occurredAt,
+        raw_payload: body,
+      },
+      { onConflict: "hotmart_transaction_id", ignoreDuplicates: true }
+    );
+
+    if (salesInsertError) {
+      // Keep webhook response successful to avoid retries breaking existing purchase flow.
+      console.error("Failed to persist sale record:", salesInsertError);
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
