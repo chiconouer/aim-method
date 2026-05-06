@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
+import { postToDiscordWebhook } from "@/lib/discord";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
+
+function formatEtTimestamp(isoString: string) {
+  const date = new Date(isoString);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  const datePart = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+  return `${time} EST · ${datePart}`;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -142,6 +160,29 @@ export async function POST(req: NextRequest) {
     if (salesInsertError) {
       // Keep webhook response successful to avoid retries breaking existing purchase flow.
       console.error("Failed to persist sale record:", salesInsertError);
+    }
+
+    if (body.event === "PURCHASE_APPROVED") {
+      const salesRealtimeWebhook = process.env.DISCORD_WEBHOOK_SALES_REALTIME;
+      if (salesRealtimeWebhook) {
+        const amount = (amountCents / 100).toFixed(2);
+        const displayTime = formatEtTimestamp(occurredAt);
+        const content = [
+          "💰 **NEW SALE** 💰",
+          "━━━━━━━━━━━━━━━━━━",
+          `👤 **${body?.data?.buyer?.name ?? "Unknown Buyer"}**`,
+          `📧 ${normalizedEmail}`,
+          `💵 **$${amount}** ${body?.data?.purchase?.price?.currency_code ?? "USD"}`,
+          `📦 ${body?.data?.product?.name ?? "Unknown Product"}`,
+          `⏰ ${displayTime}`,
+        ].join("\n");
+
+        try {
+          await postToDiscordWebhook(salesRealtimeWebhook, content);
+        } catch (discordError) {
+          console.error("Failed to post realtime sales Discord message:", discordError);
+        }
+      }
     }
   }
 

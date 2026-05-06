@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
+import { postToDiscordWebhook } from "@/lib/discord";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
+
+function formatEtTimestamp(isoString: string) {
+  const date = new Date(isoString);
+  const time = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+  const datePart = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+  return `${time} EST · ${datePart}`;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -159,6 +177,35 @@ export async function POST(req: NextRequest) {
     if (appliesInsertError) {
       // Keep webhook response successful to avoid retries and duplicate emails.
       console.error("Failed to persist apply record:", appliesInsertError);
+    }
+
+    const appliesRealtimeWebhook = process.env.DISCORD_WEBHOOK_APPLIES_REALTIME;
+    if (appliesRealtimeWebhook) {
+      const answersLines = Object.entries(cleanAnswers).map(([question, answer]) => {
+        const value =
+          typeof answer === "string" || typeof answer === "number" || typeof answer === "boolean"
+            ? String(answer)
+            : JSON.stringify(answer);
+        return `📝 **${question}**: ${value}`;
+      });
+      const content = [
+        "📋 **NEW 1-ON-1 APPLY** 📋",
+        "━━━━━━━━━━━━━━━━━━",
+        `👤 **${applicantName ?? "Unknown Applicant"}**`,
+        `📧 ${applicantEmail ?? "No email"}`,
+        `⏰ Submitted at ${formatEtTimestamp(submittedAt)}`,
+        "",
+        "**Answers:**",
+        ...answersLines,
+        "",
+        "🔗 [View in Typeform](https://admin.typeform.com/form/javrkILE/results#responses)",
+      ].join("\n");
+
+      try {
+        await postToDiscordWebhook(appliesRealtimeWebhook, content);
+      } catch (discordError) {
+        console.error("Failed to post realtime applies Discord message:", discordError);
+      }
     }
   }
 
