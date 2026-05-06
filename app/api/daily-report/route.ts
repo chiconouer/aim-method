@@ -225,17 +225,6 @@ async function hydrateCalls(events: CalendlyEvent[], token: string) {
   return calls;
 }
 
-function extractEmailsFromCalls(calls: CalendlyCall[]) {
-  const emails = new Set<string>();
-  for (const call of calls) {
-    for (const invitee of call.invitees) {
-      const email = (invitee.email ?? "").toLowerCase().trim();
-      if (email) emails.add(email);
-    }
-  }
-  return emails;
-}
-
 function matchCallByEmail(email: string, calls: CalendlyCall[]) {
   const normalized = email.toLowerCase().trim();
   if (!normalized) return null;
