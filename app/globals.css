@@ -97,4 +97,21 @@ body {
     border-color: rgba(139, 92, 246, 0.45) !important;
     box-shadow: 0 8px 40px rgba(139, 92, 246, 0.2);
   }
+
+  .neon-purple {
+    color: #a855f7;
+    text-shadow:
+      0 0 8px rgba(168, 85, 247, 0.55),
+      0 0 22px rgba(168, 85, 247, 0.35);
+  }
+
+  .upsell-arrow-bounce {
+    animation: upsellArrowBounce 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(168, 85, 247, 0.6));
+  }
+}
+
+@keyframes upsellArrowBounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(10px); }
 }
