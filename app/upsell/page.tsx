@@ -93,19 +93,6 @@ export default function UpsellPage() {
           </div>
         </div>
 
-        {/* TODO: Paste Hotmart widget code here when Sales Funnel is configured */}
-        <div
-          id="hotmart-upsell-widget"
-          className="w-full max-w-[1000px] min-h-[200px] bg-[#111] border border-white/10 rounded-2xl flex items-center justify-center mb-12"
-        >
-          <span className="text-gray-500 text-sm font-medium tracking-wide uppercase">
-            Hotmart Upsell Widget
-          </span>
-        </div>
-
-        <p className="text-xs sm:text-sm text-gray-500 max-w-xl leading-relaxed">
-          Your course access has been sent to your email. Please check your inbox and spam folder.
-        </p>
       </div>
     </div>
   );
