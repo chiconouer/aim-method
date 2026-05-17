@@ -1,4 +1,9 @@
-const STRIPE_URL = process.env.NEXT_PUBLIC_STRIPE_DOWNSELL_URL || "#";
+"use client";
+
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+const COURSE_URL = "https://course.aimodelmethods.com";
 
 const WHAT_YOU_GET = [
   { icon: "✍️", text: "Library of 200+ professionally tested prompts" },
@@ -8,7 +13,49 @@ const WHAT_YOU_GET = [
   { icon: "🗂️", text: "Organized by use case and skill level" },
 ];
 
-export default function StartDownsellPage() {
+function StartDownsellContent() {
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session_id");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function handleDownsell() {
+    if (loading) return;
+    if (!sessionId) {
+      setErrorMsg("Session not found. Please contact support@aimodelmethods.com.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch("/api/downsell/charge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = COURSE_URL;
+        return; // keep button disabled while redirecting
+      }
+      if (data.requiresAction) {
+        setErrorMsg(
+          "Your bank requires additional authentication. Please contact support@aimodelmethods.com.",
+        );
+      } else {
+        setErrorMsg(data.error || "Something went wrong. Please try again.");
+      }
+      setLoading(false);
+    } catch (err) {
+      console.error("[/start/upsell/downsell] error:", err);
+      setErrorMsg("Network error. Please try again.");
+      setLoading(false);
+    }
+  }
+
+  const mainButtonText = loading ? "Processing..." : "Get Instant Access — $97 →";
+  const cardButtonText = loading ? "Processing..." : "GET INSTANT ACCESS →";
+
   return (
     <div className="min-h-screen bg-[#050505] text-white">
 
@@ -63,22 +110,27 @@ export default function StartDownsellPage() {
 
       {/* CTA BUTTON */}
       <div className="px-5 pb-5">
-        <a
-          href={STRIPE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden"
+        <button
+          type="button"
+          onClick={handleDownsell}
+          disabled={loading}
+          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
             boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
             animation: "btnGlow 3s ease-in-out infinite",
           }}
         >
-          Get Instant Access — $97 →
-        </a>
+          {mainButtonText}
+        </button>
         <p className="text-center text-[10px] text-gray-600 mt-2">
           One-time payment · Full pack access · 7-day money-back guarantee
         </p>
+        {errorMsg && (
+          <p className="text-center text-[11px] text-red-400 mt-3 max-w-md mx-auto">
+            {errorMsg}
+          </p>
+        )}
       </div>
 
       {/* WHAT YOU GET DIVIDER */}
@@ -133,18 +185,18 @@ export default function StartDownsellPage() {
             <p className="text-[10px] text-gray-600 mt-1">One-time · No subscription</p>
           </div>
 
-          <a
-            href={STRIPE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden"
+          <button
+            type="button"
+            onClick={handleDownsell}
+            disabled={loading}
+            className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
             style={{
               background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
               animation: "wygBtnPulse 2s ease-in-out infinite",
             }}
           >
-            GET INSTANT ACCESS →
-          </a>
+            {cardButtonText}
+          </button>
           <p className="text-center text-[9px] text-gray-600 mt-2">
             🔒 Secure payment · Instant access · 7-day money-back guarantee
           </p>
@@ -154,7 +206,7 @@ export default function StartDownsellPage() {
       {/* NO THANKS */}
       <div className="text-center px-5 pb-10">
         <a
-          href="https://course.aimodelmethods.com"
+          href={COURSE_URL}
           target="_self"
           className="text-[12px] text-gray-500 hover:text-purple-400 transition-colors underline underline-offset-4"
         >
@@ -203,5 +255,13 @@ export default function StartDownsellPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function StartDownsellPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#050505]" />}>
+      <StartDownsellContent />
+    </Suspense>
   );
 }

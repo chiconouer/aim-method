@@ -1,7 +1,5 @@
 "use client";
-import { useRef } from "react";
-
-const STRIPE_URL = process.env.NEXT_PUBLIC_STRIPE_CHECKOUT_URL || "#";
+import { useRef, useState } from "react";
 
 const MODULES = [
   { icon: "🧠", title: "Diffusion Fundamentals", desc: "How the models work" },
@@ -40,6 +38,25 @@ const BODY_PARAGRAPHS = [
 
 export default function StartPage() {
   const openFaq = useRef<number | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  async function handleCheckout() {
+    if (checkoutLoading) return;
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/checkout/start", { method: "POST" });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return; // keep button disabled while redirecting
+      }
+      console.error("[/start] no url returned:", data);
+      setCheckoutLoading(false);
+    } catch (err) {
+      console.error("[/start] checkout error:", err);
+      setCheckoutLoading(false);
+    }
+  }
 
   function toggleFaq(idx: number) {
     const body = document.getElementById(`faq-body-${idx}`);
@@ -110,19 +127,19 @@ export default function StartPage() {
 
       {/* CTA BUTTON */}
       <div className="px-5 pb-5">
-        <a
-          href={STRIPE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden"
+        <button
+          type="button"
+          onClick={handleCheckout}
+          disabled={checkoutLoading}
+          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
             boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
             animation: "btnGlow 3s ease-in-out infinite",
           }}
         >
-          Enroll Now — $29 →
-        </a>
+          {checkoutLoading ? "Loading..." : "Enroll Now — $29 →"}
+        </button>
         <p className="text-center text-[10px] text-gray-600 mt-2">
           One-time payment · Full course access · 7-day refund
         </p>
@@ -175,18 +192,18 @@ export default function StartPage() {
             <p className="text-[10px] text-gray-600 mt-1">One-time · No subscription</p>
           </div>
 
-          <a
-            href={STRIPE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden"
+          <button
+            type="button"
+            onClick={handleCheckout}
+            disabled={checkoutLoading}
+            className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
             style={{
               background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
               animation: "wygBtnPulse 2s ease-in-out infinite",
             }}
           >
-            ENROLL FOR $29 →
-          </a>
+            {checkoutLoading ? "Loading..." : "ENROLL FOR $29 →"}
+          </button>
           <p className="text-center text-[9px] text-gray-600 mt-2">🔒 Secure payment · Instant access · 7-day refund</p>
         </div>
       </div>
@@ -236,18 +253,18 @@ export default function StartPage() {
       {/* FINAL CTA */}
       <div className="px-5 pb-10 text-center">
         <p className="text-[9px] text-purple-900 uppercase tracking-widest mb-3">✦ Start learning today ✦</p>
-        <a
-          href={STRIPE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mb-3 relative overflow-hidden"
+        <button
+          type="button"
+          onClick={handleCheckout}
+          disabled={checkoutLoading}
+          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mb-3 relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
           style={{
             background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
             boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
           }}
         >
-          Enroll Now — $29 →
-        </a>
+          {checkoutLoading ? "Loading..." : "Enroll Now — $29 →"}
+        </button>
         <p className="text-[9px] text-gray-700 leading-relaxed">
           Skill development depends on time and effort invested. The course provides structured instruction; individual outcomes vary.
         </p>
@@ -277,16 +294,16 @@ export default function StartPage() {
         className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 border-t border-white/5"
         style={{ background: "rgba(5,5,5,0.97)", backdropFilter: "blur(12px)" }}
       >
-        <a
-          href={STRIPE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-between max-w-lg mx-auto rounded-xl px-5 py-3 text-white relative overflow-hidden"
+        <button
+          type="button"
+          onClick={handleCheckout}
+          disabled={checkoutLoading}
+          className="flex items-center justify-between max-w-lg mx-auto rounded-xl px-5 py-3 text-white relative overflow-hidden w-full disabled:opacity-70 disabled:cursor-not-allowed"
           style={{ background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)", boxShadow: "0 0 28px rgba(124,58,237,0.4)" }}
         >
-          <span className="text-sm font-black">Enroll Now</span>
+          <span className="text-sm font-black">{checkoutLoading ? "Loading..." : "Enroll Now"}</span>
           <span className="text-base font-black">$29 →</span>
-        </a>
+        </button>
       </div>
 
       <style>{`
