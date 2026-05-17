@@ -329,7 +329,7 @@ export default function DownsellPage() {
               </p>
 
               <a
-                href="https://go.centerpag.com/PPU38CQC3BG"
+                href="https://go.centerpag.com/PPU38CQC3BG?upsell=true"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block mt-6 bg-green-500 hover:bg-green-600 transition-colors text-white font-bold text-lg px-8 py-4 rounded-xl shadow-lg shadow-green-500/30"

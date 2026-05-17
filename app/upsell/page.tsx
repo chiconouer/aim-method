@@ -41,7 +41,7 @@ export default function UpsellPage() {
 
         {/* CTA BUTTON */}
         <a
-          href="https://go.centerpag.com/PPU38CQC3BD"
+          href="https://go.centerpag.com/PPU38CQC3BD?upsell=true"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block mt-8 bg-green-500 hover:bg-green-600 transition-colors text-white font-bold text-xl px-12 py-5 rounded-xl shadow-lg shadow-green-500/20"
