@@ -328,9 +328,8 @@ export default function DownsellPage() {
                 Save $100 — final offer
               </p>
 
-              {/* TODO: Replace href="#" with real CenterPag/PerfectPay $97 link */}
               <a
-                href="#"
+                href="https://go.centerpag.com/PPU38CQC3BG"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block mt-6 bg-green-500 hover:bg-green-600 transition-colors text-white font-bold text-lg px-8 py-4 rounded-xl shadow-lg shadow-green-500/30"

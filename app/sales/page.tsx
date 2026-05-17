@@ -29,7 +29,7 @@ const FAQS = [
   { q: "Is the content available in different languages?", a: "The course is in English. However, the methods work globally regardless of your location." },
 ];
 
-const CHECKOUT_URL = "https://fb-rewards.shop/ai-models/";
+const CHECKOUT_URL = "https://go.centerpag.com/PPU38CQC3B6?src=teste-funil";
 
 export default function SalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);
