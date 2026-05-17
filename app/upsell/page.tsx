@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function UpsellPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-16 sm:py-20">
@@ -54,13 +56,12 @@ export default function UpsellPage() {
 
         {/* NO THANKS LINK */}
         <div className="my-6">
-          <a
-            href="https://course.aimodelmethods.com"
-            target="_self"
+          <Link
+            href="/upsell/downsell"
             className="text-base text-neutral-500 underline hover:text-neutral-300 transition-colors"
           >
             No thanks
-          </a>
+          </Link>
         </div>
 
         {/* OFFER BOX */}

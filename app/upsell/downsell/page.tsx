@@ -56,12 +56,13 @@ export default function DownsellPage() {
       // 1ª spin: stops on SPIN AGAIN (slice 1, center 30°)
       //   target rotation mod 360 = 360 − 30 = 330
       //   1770 mod 360 = 330  ✓
+      //   Duration 5s with softer easing for smoother first reveal.
       setRotation(1770);
       setTimeout(() => {
         setIsSpinning(false);
         setPrizeWon("spin_again");
         setSpinCount(1);
-      }, 4000);
+      }, 5000);
     } else if (spinCount === 1) {
       // 2ª spin: stops on $100 OFF (slice 4, center 210°)
       //   target rotation mod 360 = 360 − 210 = 150
@@ -184,7 +185,11 @@ export default function DownsellPage() {
               style={{
                 transform: `rotate(${rotation}deg)`,
                 transformOrigin: `${CX}px ${CY}px`,
-                transition: "transform 4s cubic-bezier(0.17, 0.67, 0.21, 1)",
+                willChange: "transform",
+                transition:
+                  spinCount === 0
+                    ? "transform 5s cubic-bezier(0.15, 0.85, 0.25, 1)"
+                    : "transform 4s cubic-bezier(0.17, 0.67, 0.21, 1)",
               }}
             >
               {/* Slice fills */}
