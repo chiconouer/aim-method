@@ -52,8 +52,19 @@ export default function UpsellPage() {
           🔒 Secure payment · Instant access
         </p>
 
+        {/* NO THANKS LINK */}
+        <div className="my-6">
+          <a
+            href="https://course.aimodelmethods.com"
+            target="_self"
+            className="text-base text-neutral-500 underline hover:text-neutral-300 transition-colors"
+          >
+            No thanks
+          </a>
+        </div>
+
         {/* OFFER BOX */}
-        <div className="mt-6 max-w-md mx-auto bg-[#111] border border-green-500/20 rounded-2xl px-6 py-6">
+        <div className="max-w-md mx-auto bg-[#111] border border-green-500/20 rounded-2xl px-6 py-6">
           <p className="text-sm text-neutral-400">Exclusive special offer for you:</p>
           <p className="mt-2">
             <span className="text-5xl font-bold text-green-400">$197</span>
@@ -62,17 +73,6 @@ export default function UpsellPage() {
           <p className="text-sm text-neutral-400 mt-2">
             One-time payment · Instant access · Lifetime model
           </p>
-        </div>
-
-        {/* NO THANKS LINK */}
-        <div className="mt-8">
-          <a
-            href="https://course.aimodelmethods.com"
-            target="_self"
-            className="text-sm text-neutral-500 hover:underline hover:text-neutral-300 transition-colors"
-          >
-            No thanks
-          </a>
         </div>
 
       </div>
