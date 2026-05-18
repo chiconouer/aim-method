@@ -29,7 +29,7 @@ const FAQS = [
   { q: "Is the content available in different languages?", a: "The course is in English. However, the methods work globally regardless of your location." },
 ];
 
-const CHECKOUT_URL = "https://go.centerpag.com/PPU38CQC3B6?src=teste-funil";
+const HOTMART_URL = "https://pay.hotmart.com/L105642115S?checkoutMode=10&bid=1777830869115";
 
 export default function SalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);
@@ -161,7 +161,7 @@ export default function SalesPage() {
         {/* CTA BUTTON */}
         <div className="px-5 pb-5">
           <a
-            href={CHECKOUT_URL}
+            href={HOTMART_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden smartplayer-click-event"
@@ -272,7 +272,7 @@ export default function SalesPage() {
             </div>
 
             <a
-              href={CHECKOUT_URL}
+              href={HOTMART_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden smartplayer-click-event"
@@ -333,7 +333,7 @@ export default function SalesPage() {
         <div className="px-5 pb-24 text-center">
           <p className="text-[9px] text-purple-900 uppercase tracking-widest mb-3">✦ Limited time offer ✦</p>
           <a
-            href={CHECKOUT_URL}
+            href={HOTMART_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mb-3 relative overflow-hidden smartplayer-click-event"
@@ -358,7 +358,7 @@ export default function SalesPage() {
         style={{ background: "rgba(5,5,5,0.97)", backdropFilter: "blur(12px)", display: "none" }}
       >
         <a
-          href={CHECKOUT_URL}
+          href={HOTMART_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-between max-w-lg mx-auto rounded-xl px-5 py-3 text-white relative overflow-hidden smartplayer-click-event"
