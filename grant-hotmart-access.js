@@ -13,7 +13,8 @@
  * Re-runnable: upserts, so running it twice rotates the password.
  *
  * Usage:
- *   node grant-hotmart-access.js
+ *   node grant-hotmart-access.js                 # generate a random password
+ *   node grant-hotmart-access.js "MyPassword!"   # use the provided plaintext
  */
 
 const fs = require("fs");
@@ -90,7 +91,9 @@ async function main() {
     process.exit(1);
   }
 
-  const password = generateStrongPassword(20);
+  // Optional CLI arg: an explicit plaintext password. If omitted, generate one.
+  const cliPassword = process.argv[2];
+  const password = cliPassword || generateStrongPassword(20);
   const password_hash = await bcrypt.hash(password, 10);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);

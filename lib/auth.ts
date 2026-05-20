@@ -22,11 +22,15 @@ export function getSession(): User | null {
     }
   }
 
-  // Fall back to aim_user cookie set by the verify route (non-httpOnly, contains email+name)
+  // Fall back to aim_user cookie set by the verify or signin route
+  // (non-httpOnly, contains base64-encoded {email,name})
   const match = document.cookie.split(";").find(c => c.trim().startsWith("aim_user="));
   if (match) {
     try {
-      const b64 = match.trim().split("=").slice(1).join("=");
+      // Cookie value may be URL-encoded by the HTTP layer (e.g. server-set
+      // cookies encode the trailing `=` of base64 as `%3D`). Decode before atob.
+      const raw = match.trim().split("=").slice(1).join("=");
+      const b64 = decodeURIComponent(raw);
       const user = JSON.parse(atob(b64)) as User;
       // Sync to localStorage for subsequent reads
       localStorage.setItem(SESSION_KEY, JSON.stringify(user));
