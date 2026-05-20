@@ -2,54 +2,32 @@
 
 import { Suspense } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 
 const MODELS = [
-  {
-    image: "/model1.jpg",
-    name: "Sofia",
-    earnings: "$11,200/month",
-    stats: "187K followers • 43K likes",
-  },
-  {
-    image: "/model2.jpg",
-    name: "Valentina",
-    earnings: "$8,750/month",
-    stats: "124K followers • 31K likes",
-  },
-  {
-    image: "/model3.jpg",
-    name: "Aria",
-    earnings: "$14,300/month",
-    stats: "215K followers • 67K likes",
-  },
-  {
-    image: "/model4.jpg",
-    name: "Sadie",
-    earnings: "$27,450/month",
-    stats: "347K followers",
-  },
+  { name: "Sofia" },
+  { name: "Valentina" },
+  { name: "Aria" },
+  { name: "Sadie" },
 ];
-
 
 const REVIEWS = [
   {
     user: "johnultra",
-    text: "Very good method, changed my life. If you want to understand how AI influencers are monetized, this program delivers real actionable strategies.",
+    text: "Very good method, changed my life. If you want to understand how AI image generation works for social media, this program delivers real actionable strategies.",
   },
   {
     user: "kylefiles",
-    text: "Very simple to understand, professor Nouer the goat. I started from scratch with no technical knowledge. Within 3 weeks I had my first AI model generating revenue.",
+    text: "Very simple to understand, professor Nouer the goat. I started from scratch with no technical knowledge. Within 3 weeks I had my first AI character live on social media.",
   },
   {
     user: "pedrosmbk",
-    text: "Quit my 9to5 after 2 months. The step-by-step framework helped me launch a profitable setup fast.",
+    text: "The step-by-step framework helped me launch my own creative project fast. Highly recommended for anyone curious about AI image generation.",
   },
   {
     user: "dexmusic",
-    text: "Amazing community and support. Very happy to be apart of this community.",
+    text: "Amazing community and support. Very happy to be a part of this community.",
   },
 ];
 
@@ -89,16 +67,16 @@ function HomeContent() {
           <span className="text-gray-500 text-xs font-medium">@chiconouer</span>
         </Link>
         <div className="hidden sm:flex items-center gap-8">
-          <a href="#models" className="text-white hover:text-purple-400 transition-colors text-sm">Model Examples</a>
+          <a href="#models" className="text-white hover:text-purple-400 transition-colors text-sm">Examples</a>
           <a href="#about" className="text-white hover:text-purple-400 transition-colors text-sm">About</a>
           <a href="#reviews" className="text-white hover:text-purple-400 transition-colors text-sm">Reviews</a>
         </div>
-        <a
-          href="/dashboard/store"
+        <button
+          onClick={handleCourseNav}
           className="bg-[#8b5cf6] hover:bg-purple-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors whitespace-nowrap"
         >
-          🤖 AI Model Store
-        </a>
+          Sign In
+        </button>
       </nav>
 
       {/* HERO */}
@@ -106,15 +84,15 @@ function HomeContent() {
         <div className="max-w-6xl mx-auto w-full">
           <div className="mb-5">
             <span className="inline-block bg-purple-900/30 border border-purple-700/40 text-purple-400 text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full">
-              AI Model Method
+              AI Image Generation Course
             </span>
           </div>
           <h1 className="text-4xl sm:text-6xl font-black text-white leading-tight tracking-tight mb-4">
-            Your AI model.<br />
-            <span className="text-purple-400">Your income.</span>
+            Create AI Influencers.<br />
+            <span className="text-purple-400">Build Your Brand.</span>
           </h1>
           <p className="text-gray-500 text-base sm:text-lg leading-relaxed mb-8 max-w-lg">
-            Build faceless AI influencers that make money 24/7 — no camera, no followers, no experience needed.
+            Learn to create realistic AI influencers for content creation, branding, and social media — no camera or experience needed.
           </p>
           <button
             onClick={handleCourseNav}
@@ -122,24 +100,23 @@ function HomeContent() {
           >
             Explore Courses →
           </button>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div id="models" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {MODELS.map((model) => (
               <div
                 key={model.name}
-                className="relative rounded-2xl overflow-hidden aspect-[3/4]"
+                className="relative rounded-2xl overflow-hidden aspect-[3/4] border border-white/10 flex items-center justify-center"
+                style={{ background: "linear-gradient(160deg, #1a1a2e 0%, #0d0d1a 100%)" }}
               >
-                <Image
-                  src={model.image}
-                  alt={model.name}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 50vw, 25vw"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                <div className="absolute bottom-3 left-3 right-3">
-                  <p className="text-white font-bold text-sm leading-tight">{model.name}</p>
-                  <p className="text-purple-400 font-bold text-xs">{model.earnings}</p>
-                  <p className="text-gray-400 text-xs mt-0.5">{model.stats}</p>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <div className="relative z-10 flex flex-col items-center gap-3 px-4 text-center">
+                  <div className="w-16 h-16 rounded-full bg-purple-900/30 border border-purple-700/40 flex items-center justify-center">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+                    </svg>
+                  </div>
+                  <p className="text-white font-bold text-base leading-tight">{model.name}</p>
+                  <p className="text-purple-400 text-xs uppercase tracking-widest">AI Character</p>
                 </div>
               </div>
             ))}
@@ -147,7 +124,7 @@ function HomeContent() {
         </div>
       </section>
 
-      {/* AI MODEL STORE BANNER */}
+      {/* COURSE HIGHLIGHTS */}
       <section id="about" className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="relative overflow-hidden rounded-2xl bg-[#0a0a0a] border border-[#222] px-10 py-12 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -158,44 +135,38 @@ function HomeContent() {
             {/* Left side */}
             <div className="relative z-10 flex-1">
               <span className="inline-block mb-4 px-3 py-1 rounded-full text-xs font-medium tracking-widest uppercase bg-purple-900/30 border border-purple-700/40 text-purple-400">
-                New — AI Model Store
+                What You Learn
               </span>
               <h2 className="text-3xl font-bold text-white leading-snug mb-3">
-                The best AI models,{" "}
-                <span className="text-purple-400">ready to make money</span>
+                A structured path through{" "}
+                <span className="text-purple-400">AI image generation</span>
               </h2>
               <p className="text-sm text-gray-400 leading-relaxed mb-6 max-w-md">
-                Skip the hardest part of the course. Get a fully built AI model — already created and ready to post on Instagram.
+                Twenty video lessons covering diffusion models, prompt engineering, character consistency, and video animation workflows used by digital artists today.
               </p>
               <div className="flex flex-wrap gap-3">
-                <a
-                  href="/dashboard/store"
+                <button
+                  onClick={handleCourseNav}
                   className="inline-flex items-center gap-2 bg-purple-700 hover:bg-purple-600 transition-colors text-white text-sm font-semibold px-5 py-3 rounded-lg"
                 >
-                  View Ready AI Models →
-                </a>
-                <a
-                  href="/dashboard/store"
-                  className="inline-flex items-center gap-2 border border-purple-900 hover:border-purple-700 transition-colors text-purple-400 text-sm font-medium px-5 py-3 rounded-lg"
-                >
-                  Learn more
-                </a>
+                  Explore the Course →
+                </button>
               </div>
             </div>
 
             {/* Right side - stats */}
             <div className="relative z-10 flex flex-col gap-3 min-w-[160px]">
               <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4">
-                <div className="text-lg font-bold text-purple-400">3–5 days</div>
-                <div className="text-xs text-gray-500 mt-1 leading-snug">saved on model creation</div>
+                <div className="text-lg font-bold text-purple-400">20 lessons</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">across 5 modules</div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4">
-                <div className="text-lg font-bold text-purple-400">100% unique</div>
-                <div className="text-xs text-gray-500 mt-1 leading-snug">sold to one student only</div>
+                <div className="text-lg font-bold text-purple-400">Full access</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">all future updates included</div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-xl px-5 py-4">
-                <div className="text-lg font-bold text-purple-400">Ready to post</div>
-                <div className="text-xs text-gray-500 mt-1 leading-snug">no editing required</div>
+                <div className="text-lg font-bold text-purple-400">7-day refund</div>
+                <div className="text-xs text-gray-500 mt-1 leading-snug">no questions asked</div>
               </div>
             </div>
 
@@ -245,7 +216,7 @@ function HomeContent() {
             Ready to Start?
           </h2>
           <p className="text-gray-400 mb-8 text-base sm:text-lg">
-            Join hundreds of students already building their AI model business.
+            Join hundreds of students already learning AI image generation with the AIM Method.
           </p>
           <button
             onClick={handleCourseNav}

@@ -44,3 +44,7 @@ supabase/.temp/
 # local-only compliance-review tooling (lesson backup + restore script)
 /nsfw-backup.json
 /restore-nsfw.js
+
+# local-only compliance-review tooling (homepage backup + restore script)
+/homepage-backup.json
+/restore-homepage.js
