@@ -40,3 +40,7 @@ next-env.d.ts
 
 # supabase cli cache
 supabase/.temp/
+
+# local-only compliance-review tooling (lesson backup + restore script)
+/nsfw-backup.json
+/restore-nsfw.js
