@@ -1,25 +1,29 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
-
-const WHAT_YOU_GET = [
-  { icon: "📹", text: "12 advanced video lessons" },
-  { icon: "⚙️", text: "Complex workflow techniques for ComfyUI and similar tools" },
-  { icon: "✍️", text: "Library of 100+ tested professional prompts" },
-  { icon: "🎛️", text: "Configuration templates for popular AI image platforms" },
-  { icon: "🔄", text: "Lifetime access with future updates" },
-  { icon: "💬", text: "Private learner community access" },
-];
 
 function StartUpsellContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
+
+  // Existing 1-click charge state
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // VSL facade state
+  const [showSoundOverlay, setShowSoundOverlay] = useState(true);
+  const [showCTAs, setShowCTAs] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Reveal upgrade CTAs 120 seconds after mount
+  useEffect(() => {
+    const t = setTimeout(() => setShowCTAs(true), 120_000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Existing 1-click charge handler — behaviour unchanged
   async function handleUpsell() {
     if (loading) return;
     if (!sessionId) {
@@ -54,16 +58,27 @@ function StartUpsellContent() {
     }
   }
 
-  const downsellHref = sessionId
-    ? `/start/upsell/downsell?session_id=${sessionId}`
-    : "/start/upsell/downsell";
+  // YouTube JS API postMessage to unmute the muted-autoplay video
+  function handleUnmute() {
+    iframeRef.current?.contentWindow?.postMessage(
+      '{"event":"command","func":"unMute","args":""}',
+      "*",
+    );
+    setShowSoundOverlay(false);
+  }
 
-  const mainButtonText = loading ? "Processing..." : "Get Instant Access — $197 →";
-  const cardButtonText = loading ? "Processing..." : "GET INSTANT ACCESS →";
+  // "No thanks" goes straight to the members area, preserving session_id
+  // as a query param for tracking parity with the upsell→downsell flow.
+  const noThanksHref = sessionId
+    ? `https://course.aimodelmethods.com?session_id=${sessionId}`
+    : "https://course.aimodelmethods.com";
+
+  const mainButtonText = loading
+    ? "Processing..."
+    : "YES — UPGRADE MY ACCESS — $197";
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
-
+    <div className="min-h-screen bg-[#050505] text-white flex flex-col">
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
         <span className="text-lg font-black tracking-tight">
@@ -72,154 +87,124 @@ function StartUpsellContent() {
         </span>
       </nav>
 
-      {/* HERO */}
-      <div className="text-center px-5 pt-8 pb-3">
-        <span className="inline-block mb-3 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase bg-purple-900/10 border border-purple-700/20 text-purple-400">
-          ✦ Next Level Course
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight tracking-tight mb-2">
-          Take Your Skills to the<br />
-          <span
-            className="text-transparent bg-clip-text"
-            style={{
-              backgroundImage: "linear-gradient(135deg,#a78bfa,#e9d5ff,#a78bfa)",
-              backgroundSize: "200%",
-              animation: "shimmer 3s linear infinite",
-            }}
-          >
-            Next Level
-          </span>
-        </h1>
-        <p className="text-[11px] text-gray-500 leading-relaxed">
-          Advanced AI Workflows Masterclass
-        </p>
-      </div>
-
-      {/* BODY CARD */}
-      <div
-        className="mx-4 my-4 rounded-2xl border border-purple-900/30 px-5 py-6"
-        style={{
-          background: "linear-gradient(160deg,#0d0a1a,#080810)",
-          boxShadow: "0 0 40px rgba(124,58,237,0.12)",
-        }}
-      >
-        <div className="flex flex-col gap-4">
-          <p className="text-[12px] text-gray-300 leading-relaxed">
-            You&apos;ve started with the fundamentals. Now it&apos;s time to go deeper. Advanced AI Workflows Masterclass picks up where the AIM Method ends — with 12 advanced video lessons designed for intermediate users ready to produce professional results consistently.
-          </p>
-          <p className="text-[12px] text-gray-300 leading-relaxed">
-            This isn&apos;t a basics rehash. Every lesson covers techniques used by digital artists working with AI image generation tools at a professional level.
-          </p>
-        </div>
-      </div>
-
-      {/* CTA BUTTON */}
-      <div className="px-5 pb-5">
-        <button
-          type="button"
-          onClick={handleUpsell}
-          disabled={loading}
-          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
+      <main className="flex-1 px-4 py-6 sm:py-10">
+        <div
+          className="max-w-2xl mx-auto rounded-2xl border border-purple-900/30 px-5 py-6 sm:px-7 sm:py-8"
           style={{
-            background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-            boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-            animation: "btnGlow 3s ease-in-out infinite",
+            background: "linear-gradient(160deg,#0d0a1a,#080810)",
+            boxShadow: "0 0 40px rgba(124,58,237,0.12)",
           }}
         >
-          {mainButtonText}
-        </button>
-        <p className="text-center text-[10px] text-gray-600 mt-2">
-          One-time payment · Full course access · 7-day money-back guarantee
-        </p>
-        {errorMsg && (
-          <p className="text-center text-[11px] text-red-400 mt-3 max-w-md mx-auto">
-            {errorMsg}
-          </p>
-        )}
-      </div>
-
-      {/* WHAT YOU GET DIVIDER */}
-      <div className="flex items-center gap-2 px-5 pb-3">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
-        <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">What You Get</span>
-        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
-      </div>
-
-      {/* WHAT YOU GET CARD */}
-      <div className="px-5 mb-5 relative">
-        <div
-          className="absolute inset-0 rounded-[20px]"
-          style={{
-            padding: "2px",
-            background: "conic-gradient(from 0deg, #7c3aed, #a78bfa, #e9d5ff, #7c3aed)",
-            WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-            WebkitMaskComposite: "xor",
-            maskComposite: "exclude",
-            animation: "rotateBorder 3s linear infinite",
-          }}
-        />
-        <div
-          className="relative rounded-[18px] p-5"
-          style={{ background: "linear-gradient(160deg,#0d0a1a,#080810)" }}
-        >
-          <div className="text-center mb-4">
-            <span
-              className="inline-block px-4 py-1 rounded-full text-[9px] font-black tracking-widest uppercase text-white mb-3"
-              style={{ background: "linear-gradient(90deg,#7c3aed,#a78bfa)" }}
+          {/* Headline row */}
+          <div className="flex items-center gap-3">
+            <svg
+              className="animate-spin w-5 h-5 text-purple-400 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
             >
-              ✦ Advanced Course · $197
-            </span>
-            <p className="text-sm font-bold text-gray-200">Everything included:</p>
-          </div>
-
-          <div className="flex flex-col gap-3 mb-5">
-            {WHAT_YOU_GET.map((item) => (
-              <div key={item.text} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-purple-900/20 border border-purple-700/25">
-                  {item.icon}
-                </div>
-                <p className="text-[11px] text-gray-400 leading-relaxed pt-1">{item.text}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center py-4 border-t border-purple-900/20 mb-4">
-            <p className="text-xl font-black text-white">
-              Today: <span className="text-purple-400">$197</span>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+              <path
+                d="M22 12a10 10 0 0 1-10 10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </svg>
+            <p className="text-base sm:text-lg font-bold text-white leading-tight">
+              Sua compra está sendo processada...
             </p>
-            <p className="text-[10px] text-gray-600 mt-1">One-time · No subscription</p>
+          </div>
+          <p className="text-[12px] sm:text-sm text-gray-400 leading-relaxed mt-1 ml-8">
+            Enquanto isso, assista à primeira aula do curso 👇
+          </p>
+
+          {/* Video + sound overlay */}
+          <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black mt-5 border border-white/5">
+            <iframe
+              ref={iframeRef}
+              src="https://www.youtube.com/embed/RyOUKVc7mbk?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&playsinline=1&enablejsapi=1"
+              title="Lesson"
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+
+            {showSoundOverlay && (
+              <button
+                type="button"
+                onClick={handleUnmute}
+                aria-label="Ativar som do vídeo"
+                className="absolute inset-0 flex items-center justify-center bg-black/45 cursor-pointer focus:outline-none focus-visible:bg-black/55 transition-colors"
+              >
+                <span
+                  className="flex items-center gap-2 px-6 py-4 sm:px-8 sm:py-5 rounded-2xl text-white text-base sm:text-lg font-black tracking-wide"
+                  style={{
+                    background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+                    boxShadow:
+                      "0 0 30px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.15)",
+                    minHeight: "48px",
+                    animation: "soundPulse 1.6s ease-in-out infinite",
+                  }}
+                >
+                  <span className="text-2xl" aria-hidden="true">🔊</span>
+                  ATIVAR SOM
+                </span>
+              </button>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={handleUpsell}
-            disabled={loading}
-            className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
-            style={{
-              background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-              animation: "wygBtnPulse 2s ease-in-out infinite",
-            }}
+          {/* Upgrade CTAs — hidden until 120s elapses.
+              Wrapper always rendered with min-height so revealing doesn't
+              shift the page. Children only mounted once showCTAs flips,
+              and fade in via opacity transition. */}
+          <div
+            className={`mt-6 min-h-[160px] transition-opacity duration-700 ease-out ${
+              showCTAs ? "opacity-100" : "opacity-0 pointer-events-none"
+            }`}
+            aria-hidden={!showCTAs}
           >
-            {cardButtonText}
-          </button>
-          <p className="text-center text-[9px] text-gray-600 mt-2">
-            🔒 Secure payment · Instant access · 7-day money-back guarantee
-          </p>
+            {showCTAs && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleUpsell}
+                  disabled={loading}
+                  className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed"
+                  style={{
+                    background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+                    boxShadow:
+                      "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
+                    animation: "btnGlow 3s ease-in-out infinite",
+                  }}
+                >
+                  {mainButtonText}
+                </button>
+                <p className="text-center text-[10px] text-gray-600 mt-2">
+                  One-time payment · Full course access · 7-day money-back guarantee
+                </p>
+                {errorMsg && (
+                  <p className="text-center text-[11px] text-red-400 mt-3 max-w-md mx-auto">
+                    {errorMsg}
+                  </p>
+                )}
+                <div className="text-center mt-5">
+                  <a
+                    href={noThanksHref}
+                    className="text-[12px] text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-4"
+                  >
+                    No thanks, take me to my course
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-
-      {/* NO THANKS */}
-      <div className="text-center px-5 pb-10">
-        <Link
-          href={downsellHref}
-          className="text-[12px] text-gray-500 hover:text-purple-400 transition-colors underline underline-offset-4"
-        >
-          No thanks, take me to a smaller option
-        </Link>
-      </div>
+      </main>
 
       {/* FOOTER */}
-      <footer className="border-t border-white/5 px-5 py-8 text-center">
+      <footer className="border-t border-white/5 px-5 py-8 text-center mt-auto">
         <p className="text-sm font-black mb-2">
           <span className="text-white">AIM </span>
           <span className="text-purple-400">Method</span>
@@ -241,21 +226,13 @@ function StartUpsellContent() {
       </footer>
 
       <style>{`
-        @keyframes shimmer { 0%{background-position:0%} 100%{background-position:200%} }
         @keyframes btnGlow {
           0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
           50%{box-shadow:0 8px 48px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
         }
-        @keyframes wygBtnPulse {
-          0%,100%{box-shadow:0 0 20px rgba(124,58,237,0.4);transform:scale(1)}
-          50%{box-shadow:0 0 40px rgba(124,58,237,0.7);transform:scale(1.01)}
-        }
-        @keyframes rotateBorder {
-          0%{background:conic-gradient(from 0deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          25%{background:conic-gradient(from 90deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          50%{background:conic-gradient(from 180deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          75%{background:conic-gradient(from 270deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          100%{background:conic-gradient(from 360deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
+        @keyframes soundPulse {
+          0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(124,58,237,0.6),inset 0 1px 0 rgba(255,255,255,0.15)}
+          50%{transform:scale(1.04);box-shadow:0 0 50px rgba(124,58,237,0.95),inset 0 1px 0 rgba(255,255,255,0.15)}
         }
       `}</style>
     </div>
