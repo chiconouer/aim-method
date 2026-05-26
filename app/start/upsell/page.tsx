@@ -114,11 +114,11 @@ function StartUpsellContent() {
               />
             </svg>
             <p className="text-base sm:text-lg font-bold text-white leading-tight">
-              Sua compra está sendo processada...
+              Your purchase is being processed...
             </p>
           </div>
           <p className="text-[12px] sm:text-sm text-gray-400 leading-relaxed mt-1 ml-8">
-            Enquanto isso, assista à primeira aula do curso 👇
+            While you wait, watch the first lesson of the course 👇
           </p>
 
           {/* Video + sound overlay */}
@@ -136,7 +136,7 @@ function StartUpsellContent() {
               <button
                 type="button"
                 onClick={handleUnmute}
-                aria-label="Ativar som do vídeo"
+                aria-label="Tap to unmute the video"
                 className="absolute inset-0 flex items-center justify-center bg-black/45 cursor-pointer focus:outline-none focus-visible:bg-black/55 transition-colors"
               >
                 <span
@@ -150,7 +150,7 @@ function StartUpsellContent() {
                   }}
                 >
                   <span className="text-2xl" aria-hidden="true">🔊</span>
-                  ATIVAR SOM
+                  TAP TO UNMUTE
                 </span>
               </button>
             )}
