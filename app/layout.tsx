@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AIM Method — AI Image Generation Course",
+  title: "AIM Method — Build AI Models That Make Money",
   description:
-    "Learn to create realistic AI influencers for content creation, branding, and social media. Twenty structured video lessons covering diffusion models, prompt engineering, and video animation.",
+    "The exact system to create, grow and monetize your AI influencer — no face, no followers, no experience needed.",
   icons: { icon: "/favicon.ico" },
 };
 
