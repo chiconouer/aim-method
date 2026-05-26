@@ -27,6 +27,19 @@ const nextConfig = {
           },
         ],
       },
+      // Legacy upsell URLs renamed to versioned paths. Query strings are
+      // preserved by Next.js by default, so PerfectPay / ad-tracking params
+      // ride through the redirect.
+      {
+        source: '/upsell',
+        destination: '/upsell-1',
+        permanent: true,
+      },
+      {
+        source: '/upsell/downsell',
+        destination: '/downsell-1',
+        permanent: true,
+      },
     ];
   },
 };
