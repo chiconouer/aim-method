@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Black-hat $197 checkout — flips to a Hotmart link later, CenterPag for now.
-const CHECKOUT_URL = "https://go.centerpag.com/PPU38CQC3BD?upsell=true";
+// Black-hat $197 checkout — Hotmart product U106013301D, offer l3jwqomo.
+const CHECKOUT_URL = "https://pay.hotmart.com/U106013301D?off=l3jwqomo&checkoutMode=10";
 const DOWNSELL_HREF = "/downsell-1";
 
 export default function UpsellPage() {
