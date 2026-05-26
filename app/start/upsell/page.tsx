@@ -204,28 +204,6 @@ function StartUpsellContent() {
         </div>
       </main>
 
-      {/* FOOTER */}
-      <footer className="border-t border-white/5 px-5 py-8 text-center mt-auto">
-        <p className="text-sm font-black mb-2">
-          <span className="text-white">AIM </span>
-          <span className="text-purple-400">Method</span>
-        </p>
-        <p className="text-[10px] text-gray-500 mb-4">
-          Questions?{" "}
-          <a href="mailto:support@aimodelmethods.com" className="text-purple-400 hover:underline">
-            support@aimodelmethods.com
-          </a>
-        </p>
-        <div className="flex items-center justify-center gap-4 text-[10px] text-gray-500 mb-4">
-          <a href="/refund-policy" className="hover:text-purple-400 transition-colors">Refund Policy</a>
-          <span className="text-gray-800">·</span>
-          <a href="/terms" className="hover:text-purple-400 transition-colors">Terms</a>
-          <span className="text-gray-800">·</span>
-          <a href="/privacy" className="hover:text-purple-400 transition-colors">Privacy</a>
-        </div>
-        <p className="text-[9px] text-gray-700">© 2026 AIM Method. All rights reserved.</p>
-      </footer>
-
       <style>{`
         @keyframes btnGlow {
           0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
