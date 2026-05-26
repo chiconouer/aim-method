@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 // Black-hat $197 checkout — flips to a Hotmart link later, CenterPag for now.
 const CHECKOUT_URL = "https://go.centerpag.com/PPU38CQC3BD?upsell=true";
-const DOWNSELL_HREF = "/upsell/downsell";
+const DOWNSELL_HREF = "/downsell-1";
 
 export default function UpsellPage() {
   // VSL facade state
