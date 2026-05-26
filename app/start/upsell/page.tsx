@@ -67,11 +67,12 @@ function StartUpsellContent() {
     setShowSoundOverlay(false);
   }
 
-  // "No thanks" goes straight to the members area, preserving session_id
-  // as a query param for tracking parity with the upsell→downsell flow.
+  // "No thanks" routes through the downsell page so the same Stripe
+  // session can power a 1-click $97 charge if the customer changes
+  // their mind there.
   const noThanksHref = sessionId
-    ? `https://course.aimodelmethods.com?session_id=${sessionId}`
-    : "https://course.aimodelmethods.com";
+    ? `/start/upsell/downsell?session_id=${sessionId}`
+    : "/start/upsell/downsell";
 
   const mainButtonText = loading
     ? "Processing..."
