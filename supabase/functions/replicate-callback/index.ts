@@ -349,10 +349,12 @@ async function downloadAndUploadToStorage(
 
 Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  let orderId: string | null = null;
+  let position = 0;
   try {
     const url = new URL(req.url);
-    const orderId = url.searchParams.get("order_id");
-    const position = parseInt(url.searchParams.get("position") || "0", 10);
+    orderId = url.searchParams.get("order_id");
+    position = parseInt(url.searchParams.get("position") || "0", 10);
     if (!orderId || !position) {
       return new Response(JSON.stringify({ error: "Missing order_id or position" }), { status: 400 });
     }
@@ -442,6 +444,18 @@ Deno.serve(async (req) => {
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("replicate-callback error:", errMsg);
+    if (orderId) {
+      try {
+        await supabase.from("upsell_orders").update({
+          status: "failed",
+          notes: `Callback error${position ? ` at photo ${position}` : ""}: ${errMsg}`,
+          updated_at: new Date().toISOString(),
+        }).eq("id", orderId);
+      } catch (updateErr) {
+        const updateMsg = updateErr instanceof Error ? updateErr.message : String(updateErr);
+        console.error(`[${orderId}] failed to mark order as failed:`, updateMsg);
+      }
+    }
     return new Response(JSON.stringify({ error: errMsg }), { status: 500 });
   }
 });

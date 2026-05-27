@@ -349,11 +349,10 @@ Deno.serve(async (req) => {
     await supabase.from("upsell_orders").update({
       status: "generating",
       generated_images: [],
-      notes: null,
       updated_at: new Date().toISOString(),
     }).eq("id", orderId);
 
-    await createReplicatePrediction(prompt, orderId, 1);
+    await createReplicatePrediction(prompt, orderId, 1, order.reference_image_url ?? undefined);
 
     return new Response(JSON.stringify({ accepted: true, order_id: orderId, started_at: 1 }), {
       status: 202,
