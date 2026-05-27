@@ -11,6 +11,11 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const REPLICATE_MODEL = "google/nano-banana-pro";
 const CALLBACK_BASE_URL = `${SUPABASE_URL}/functions/v1/replicate-callback`;
 const STORAGE_BUCKET = "upsell-photos";
+// Optional — if absent, delivery email is skipped with a warning. Photos
+// still reach ready_for_review and remain accessible at the gallery URL.
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const GALLERY_BASE_URL = "https://www.aimodelmethods.com/upsell-1/my-model";
+const EMAIL_FROM = "AIM Method <noreply@aimodelmethods.com>";
 
 interface FormResponses {
   age?: string;
@@ -313,6 +318,90 @@ Vibe: rooftop magic hour, the kind of photo a {NICHE} {AGE}-year-old Instagram m
 };
 
 
+async function sendDeliveryEmail(
+  orderId: string,
+  customerEmail: string,
+  customerName: string | null,
+): Promise<boolean> {
+  if (!RESEND_API_KEY) {
+    console.warn(`[${orderId}] RESEND_API_KEY not set — skipping delivery email`);
+    return false;
+  }
+
+  const firstName = (customerName || "").split(" ")[0] || "there";
+  const galleryUrl = `${GALLERY_BASE_URL}/${orderId}`;
+
+  const html = `
+    <span style="display:none;font-size:1px;max-height:0;overflow:hidden;opacity:0;">Your 11 AI photos are ready — click to view your private gallery</span>
+    <div style="background-color:#0a0a0a;padding:48px 20px;font-family:sans-serif;">
+      <div style="max-width:520px;margin:0 auto;">
+
+        <div style="text-align:center;margin-bottom:32px;">
+          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AIM</span>
+          <span style="font-size:22px;font-weight:800;color:#8b5cf6;letter-spacing:-0.5px;"> Method</span>
+        </div>
+
+        <div style="background-color:#111111;border:1px solid #222222;border-radius:16px;overflow:hidden;">
+          <div style="height:3px;background-color:#8b5cf6;"></div>
+          <div style="padding:40px 36px;">
+
+            <h1 style="font-size:24px;font-weight:800;color:#8b5cf6;margin:0 0 6px;">Your AI model is ready! 🎉</h1>
+            <p style="font-size:15px;color:#9ca3af;margin:0 0 24px;">Hi ${firstName}, your 11 hyperrealistic AI photos are ready to view and download.</p>
+
+            <p style="font-size:15px;color:#9ca3af;margin:0 0 32px;">Click below to open your private gallery.</p>
+
+            <div style="text-align:center;">
+              <a href="${galleryUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;">View Your Gallery</a>
+            </div>
+
+            <div style="border-top:1px solid #222222;margin-top:40px;padding-top:24px;">
+              <p style="font-size:13px;color:#6b7280;margin:0 0 8px;line-height:1.6;">
+                Your gallery link is private — don't share it. Anyone with the link can view your photos.
+              </p>
+              <p style="font-size:13px;color:#6b7280;margin:0;line-height:1.6;">
+                Questions? Reply to this email or contact aimodelmethods@gmail.com
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        <p style="text-align:center;font-size:12px;color:#374151;margin-top:28px;">© 2026 AIM Method · All rights reserved</p>
+
+      </div>
+    </div>
+  `;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: EMAIL_FROM,
+        to: customerEmail,
+        subject: "Your AI model is ready 🎉",
+        html,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[${orderId}] Resend send failed ${res.status}: ${errText}`);
+      return false;
+    }
+
+    console.log(`[${orderId}] delivery email sent to ${customerEmail}`);
+    return true;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[${orderId}] Resend send threw: ${errMsg}`);
+    return false;
+  }
+}
+
 async function downloadAndUploadToStorage(
   replicateUrl: string,
   orderId: string,
@@ -383,7 +472,7 @@ Deno.serve(async (req) => {
     // Fetch current order state
     const { data: order, error: fetchErr } = await supabase
       .from("upsell_orders")
-      .select("generated_images, form_responses")
+      .select("generated_images, form_responses, customer_email, customer_name")
       .eq("id", orderId)
       .single();
 
@@ -413,6 +502,23 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
       }).eq("id", orderId);
       console.log(`[${orderId}] all 11 photos done, marked ready_for_review`);
+
+      // Best-effort delivery email — failure logs loud but doesn't block.
+      // Photos are already accessible via the gallery URL.
+      const customerEmail = typeof order.customer_email === "string" ? order.customer_email : null;
+      const customerName = typeof order.customer_name === "string" ? order.customer_name : null;
+      if (customerEmail) {
+        const emailSent = await sendDeliveryEmail(orderId, customerEmail, customerName);
+        if (emailSent) {
+          await supabase.from("upsell_orders").update({
+            delivery_email_sent_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }).eq("id", orderId);
+        }
+      } else {
+        console.error(`[${orderId}] no customer_email on order — delivery email skipped`);
+      }
+
       return new Response(JSON.stringify({ acknowledged: true, complete: true }), { status: 200 });
     }
 
