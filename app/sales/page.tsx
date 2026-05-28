@@ -29,7 +29,7 @@ const FAQS = [
   { q: "Is the content available in different languages?", a: "The course is in English. However, the methods work globally regardless of your location." },
 ];
 
-const HOTMART_URL = "https://pay.hotmart.com/L105642115S?checkoutMode=10&bid=1777830869115";
+const HOTMART_URL = "https://pay.hotmart.com/L105642115S?checkoutMode=10&sck=organico";
 
 export default function SalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);

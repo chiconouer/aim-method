@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 // Black-hat $197 checkout — Hotmart product U106013301D, offer l3jwqomo.
-const CHECKOUT_URL = "https://pay.hotmart.com/U106013301D?off=l3jwqomo&checkoutMode=10";
+const CHECKOUT_URL = "https://pay.hotmart.com/U106013301D?off=l3jwqomo&checkoutMode=10&sck=organico";
 const DOWNSELL_HREF = "/downsell-1";
 
 export default function UpsellPage() {
