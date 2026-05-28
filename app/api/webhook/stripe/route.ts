@@ -57,6 +57,123 @@ function welcomeEmailHTML(firstName: string, loginUrl: string, productName: stri
   `;
 }
 
+// Mirror of the Hotmart upsell flow: creates an upsell_orders row and emails
+// the customer the link to /upsell-1/preferences/<id> so they can fill the
+// Tally form. Same row schema, same email template — Stripe upsell delivers
+// identical product (11 AI photos) as Hotmart upsell.
+async function provisionUpsellOrderFromStripe({
+  paymentIntentId,
+  email,
+  amount,
+  currency,
+  metadata,
+}: {
+  paymentIntentId: string;
+  email: string;
+  amount: number;
+  currency: string;
+  metadata: Record<string, string>;
+}) {
+  const normalizedEmail = email.toLowerCase().trim();
+  // Reuse the existing `hotmart_transaction_id` UNIQUE column for idempotency.
+  // Prefix "stripe:" distinguishes Stripe-originated orders from real Hotmart
+  // txIds without requiring a schema migration.
+  const externalId = `stripe:${paymentIntentId}`;
+  const notes = `stripe_upsell:amount=${amount}/${currency} is_upsell=${metadata.is_upsell ?? ""} content_id=${metadata.content_id ?? ""}`;
+
+  const { error: upsertErr } = await supabaseAdmin
+    .from("upsell_orders")
+    .upsert(
+      {
+        hotmart_transaction_id: externalId,
+        customer_email: normalizedEmail,
+        customer_name: null,
+        status: "pending",
+        notes,
+      },
+      {
+        onConflict: "hotmart_transaction_id",
+        ignoreDuplicates: true,
+      },
+    );
+  if (upsertErr) {
+    console.error(
+      `[stripe webhook] upsell upsert error pi=${paymentIntentId} err=${upsertErr.message}`,
+    );
+    return;
+  }
+
+  const { data: row, error: selectErr } = await supabaseAdmin
+    .from("upsell_orders")
+    .select("id")
+    .eq("hotmart_transaction_id", externalId)
+    .single();
+  if (selectErr || !row) {
+    console.error(
+      `[stripe webhook] upsell select-back error pi=${paymentIntentId} err=${selectErr?.message}`,
+    );
+    return;
+  }
+
+  const preferencesUrl = `https://aimodelmethods.com/upsell-1/preferences/${row.id}`;
+  const upsellFirstName = "there"; // safe-payment doesn't send name in PI payload
+
+  const { error: emailErr } = await resend.emails.send({
+    from: "AIM Method <noreply@aimodelmethods.com>",
+    to: normalizedEmail,
+    subject: "Tell us about your AI model 🎨",
+    html: `
+      <span style="display:none;font-size:1px;max-height:0;overflow:hidden;opacity:0;">Your custom AI model is being prepared. Tell us your preferences.</span>
+      <div style="background-color:#0a0a0a;padding:48px 20px;font-family:sans-serif;">
+        <div style="max-width:520px;margin:0 auto;">
+
+          <div style="text-align:center;margin-bottom:32px;">
+            <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AIM</span>
+            <span style="font-size:22px;font-weight:800;color:#8b5cf6;letter-spacing:-0.5px;"> Method</span>
+          </div>
+
+          <div style="background-color:#111111;border:1px solid #222222;border-radius:16px;overflow:hidden;">
+            <div style="height:3px;background-color:#8b5cf6;"></div>
+            <div style="padding:40px 36px;">
+
+              <h1 style="font-size:24px;font-weight:800;color:#8b5cf6;margin:0 0 6px;">Your AI model is being created! 🎨</h1>
+              <p style="font-size:15px;color:#9ca3af;margin:0 0 32px;">Hi ${upsellFirstName}, thanks for your purchase. We just need a few details to build your custom AI model exactly the way you want it.</p>
+
+              <div style="text-align:center;">
+                <a href="${preferencesUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;">Tell Us Your Preferences →</a>
+              </div>
+
+              <div style="border-top:1px solid #222222;margin-top:40px;padding-top:24px;">
+                <p style="font-size:13px;color:#9ca3af;margin:0 0 12px;line-height:1.6;">
+                  It takes 2 minutes. Once you submit, we'll generate 11 hyperrealistic photos of your custom AI model and email them to you within 24&ndash;48 hours in 4K quality.
+                </p>
+                <p style="font-size:13px;color:#9ca3af;margin:0;line-height:1.6;">
+                  This link is unique to your order. Don't share it.
+                </p>
+              </div>
+
+            </div>
+          </div>
+
+          <p style="text-align:center;font-size:12px;color:#374151;margin-top:28px;">© 2025 AIM Method · All rights reserved</p>
+
+        </div>
+      </div>
+    `,
+  });
+  if (emailErr) {
+    console.error(
+      `[stripe webhook] upsell email error pi=${paymentIntentId}:`,
+      emailErr,
+    );
+    return;
+  }
+
+  console.log(
+    `[stripe webhook] upsell order created order_id=${row.id} email=${normalizedEmail} pi=${paymentIntentId}`,
+  );
+}
+
 async function provisionAccess({
   email,
   fullName,
@@ -159,36 +276,33 @@ export async function POST(req: NextRequest) {
       }
     } else if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object as Stripe.PaymentIntent;
-      const product = pi.metadata?.product;
 
-      // Only fire access provisioning for our upsell/downsell. Initial $29
-      // is handled by checkout.session.completed (avoid double email).
-      if (product === "upsell" || product === "downsell") {
-        const customerId =
-          typeof pi.customer === "string" ? pi.customer : pi.customer?.id;
-        if (!customerId) {
-          console.warn(`[stripe webhook] PI ${pi.id} has no customer`);
-        } else {
-          const customer = await stripe.customers.retrieve(customerId);
-          if (customer.deleted) {
-            console.warn(`[stripe webhook] customer ${customerId} is deleted`);
-          } else {
-            const c = customer as Stripe.Customer;
-            const email = c.email ?? undefined;
-            const fullName = c.name ?? "Student";
-            if (!email) {
-              console.warn(`[stripe webhook] customer ${customerId} has no email`);
-            } else {
-              const productName =
-                product === "upsell"
-                  ? "Advanced AI Workflows Masterclass"
-                  : "Prompt Engineering Pro Pack";
-              await provisionAccess({ email, fullName, productName });
-            }
-          }
-        }
+      // Recognize both safe-payment.store schema (metadata.is_upsell="1")
+      // AND legacy schema (metadata.product="upsell"|"downsell"). Both
+      // converge to the same delivery: 11 AI photos via upsell_orders +
+      // Tally preferences flow (identical to Hotmart upsell).
+      const isUpsell =
+        pi.metadata?.is_upsell === "1" ||
+        pi.metadata?.product === "upsell" ||
+        pi.metadata?.product === "downsell";
+
+      if (!isUpsell) {
+        console.log(`[stripe webhook] PI ${pi.id} not an upsell, skipping`);
       } else {
-        console.log(`[stripe webhook] PI ${pi.id} not an upsell/downsell, skipping`);
+        const email = pi.receipt_email;
+        if (!email) {
+          console.warn(
+            `[stripe webhook] PI ${pi.id} is upsell but has no receipt_email — cannot deliver`,
+          );
+        } else {
+          await provisionUpsellOrderFromStripe({
+            paymentIntentId: pi.id,
+            email,
+            amount: pi.amount,
+            currency: pi.currency,
+            metadata: (pi.metadata ?? {}) as Record<string, string>,
+          });
+        }
       }
     } else if (event.type === "payment_intent.payment_failed") {
       const pi = event.data.object as Stripe.PaymentIntent;
