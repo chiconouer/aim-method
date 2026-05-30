@@ -231,17 +231,106 @@ export function AIMAssistant() {
   );
 }
 
+const TYPEFORM_APPLY_URL = "https://form.typeform.com/to/javrkILE";
+const TYPEFORM_URL_REGEX = /https:\/\/form\.typeform\.com\/to\/javrkILE\/?/g;
+
+function hasTypeformApplyLink(content: string): boolean {
+  return /form\.typeform\.com\/to\/javrkILE/.test(content);
+}
+
+// Removes the Typeform application URL from the assistant text (the dedicated
+// Apply button below the bubble replaces it). Handles both "URL on its own
+// line" (preferred per system prompt) and inline cases, then collapses the
+// blank lines left behind.
+function stripTypeformLink(text: string): string {
+  return text
+    .replace(
+      /^[ \t]*https:\/\/form\.typeform\.com\/to\/javrkILE\/?[ \t]*$/gm,
+      "",
+    )
+    .replace(TYPEFORM_URL_REGEX, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Splits assistant text into a mix of text nodes and <a> elements for any
+// http(s) URL found. React text nodes are auto-escaped, and the regex only
+// matches http/https schemes — so no XSS surface from user-controlled hrefs.
+function renderTextWithLinks(text: string): React.ReactNode[] {
+  const parts: React.ReactNode[] = [];
+  const urlRegex = /https?:\/\/[^\s]+/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = urlRegex.exec(text)) !== null) {
+    const start = match.index;
+    if (start > lastIndex) {
+      parts.push(text.slice(lastIndex, start));
+    }
+    let url = match[0];
+    let trailing = "";
+    // URLs commonly get glued to sentence-ending punctuation; strip it so the
+    // link isn't broken or visually noisy.
+    const trailingMatch = url.match(/[.,;:!?)\]]+$/);
+    if (trailingMatch) {
+      trailing = trailingMatch[0];
+      url = url.slice(0, -trailing.length);
+    }
+    parts.push(
+      <a
+        key={`url-${start}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-purple-300 underline underline-offset-2 hover:text-purple-200 break-all"
+      >
+        {url}
+      </a>,
+    );
+    if (trailing) parts.push(trailing);
+    lastIndex = start + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts;
+}
+
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
+
+  if (isUser) {
+    return (
+      <div className="self-end max-w-[85%] rounded-2xl rounded-br-sm bg-gradient-to-br from-purple-500 to-purple-700 text-white p-3 px-4 text-sm leading-relaxed whitespace-pre-wrap">
+        {message.content}
+      </div>
+    );
+  }
+
+  const hasApply = hasTypeformApplyLink(message.content);
+  const displayText = hasApply
+    ? stripTypeformLink(message.content)
+    : message.content;
+
   return (
-    <div
-      className={`max-w-[85%] rounded-2xl p-3 px-4 text-sm leading-relaxed whitespace-pre-wrap ${
-        isUser
-          ? "self-end bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-br-sm"
-          : "self-start bg-white/5 border border-white/10 text-gray-200 rounded-tl-sm"
-      }`}
-    >
-      {message.content}
+    <div className="self-start max-w-[85%] flex flex-col gap-2">
+      {displayText && (
+        <div className="bg-white/5 border border-white/10 text-gray-200 rounded-2xl rounded-tl-sm p-3 px-4 text-sm leading-relaxed whitespace-pre-wrap">
+          {renderTextWithLinks(displayText)}
+        </div>
+      )}
+      {hasApply && (
+        <a
+          href={TYPEFORM_APPLY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="purple-btn text-white font-bold py-3 px-5 rounded-xl text-sm text-center"
+        >
+          🎯 Apply Now
+        </a>
+      )}
     </div>
   );
 }
