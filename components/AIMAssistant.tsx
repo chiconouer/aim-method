@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getSession } from "@/lib/auth";
+import { useAIMAssistant } from "@/components/AIMAssistantContext";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -19,8 +20,8 @@ const WELCOME_TEXT =
   "Hey 👋 I'm AIM Assistant. Ask me anything about the course — strategy, content, Instagram, Fanvue setup, whatever you need.";
 
 export function AIMAssistant() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const { isOpen, isExpanded, setIsOpen, setIsExpanded, close } =
+    useAIMAssistant();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -93,8 +94,7 @@ export function AIMAssistant() {
   }
 
   function handleClose() {
-    setIsOpen(false);
-    setIsExpanded(false);
+    close();
   }
 
   return (
@@ -102,7 +102,7 @@ export function AIMAssistant() {
       {/* Floating button — always visible */}
       <button
         type="button"
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => setIsOpen(!isOpen)}
         aria-label={isOpen ? "Close AIM Assistant" : "Open AIM Assistant"}
         className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 text-white flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.45)] hover:shadow-[0_10px_40px_rgba(139,92,246,0.7)] hover:-translate-y-0.5 transition-all"
       >
@@ -140,7 +140,7 @@ export function AIMAssistant() {
             </div>
             <button
               type="button"
-              onClick={() => setIsExpanded((v) => !v)}
+              onClick={() => setIsExpanded(!isExpanded)}
               aria-label={isExpanded ? "Collapse" : "Expand"}
               className="hidden sm:flex w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 items-center justify-center text-gray-400 hover:text-white transition-colors"
             >
