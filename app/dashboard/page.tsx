@@ -7,6 +7,7 @@ import { getSession, getProgress, User } from "@/lib/auth";
 import { MODULES } from "@/lib/courseData";
 import { isModuleUnlocked } from "@/lib/moduleAccess";
 import { OnboardingTour } from "@/components/OnboardingTour";
+import { getCompletionStatus } from "@/lib/courseCompletion";
 
 const COURSE_TITLE = "AIM Method";
 const TOTAL_LESSONS = MODULES.reduce((acc, m) => acc + m.lessons.length, 0);
@@ -76,6 +77,8 @@ export default function DashboardHomePage() {
   const next = findNextLesson(progressMap, completedModules);
   const courseComplete = !next;
   const isStart = completedLessons === 0;
+  // Full completion requires lessons AND quizzes — drives the celebration card.
+  const fullCompletion = getCompletionStatus(progressMap, completedModules);
   const displayName = user.name && user.name !== "Student" ? user.name : "";
   const initial = (displayName || user.email || "?")[0].toUpperCase();
 
@@ -178,6 +181,32 @@ export default function DashboardHomePage() {
             </p>
           </div>
         </div>
+
+        {/* Certificate celebration card — shown only when both lessons + quizzes are 100% */}
+        {fullCompletion.isComplete && (
+          <Link
+            href="/dashboard/certificate"
+            className="block glass-card card-hover rounded-2xl p-5 mb-8 border-purple-500/40 flex items-center gap-5 group"
+          >
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-2xl flex-shrink-0 shadow-[0_0_30px_rgba(139,92,246,0.35)]">
+              🎓
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-purple-400 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+                You did it
+              </p>
+              <p className="text-white font-bold text-base">
+                Your Certificate is Ready
+              </p>
+              <p className="text-gray-500 text-xs mt-0.5">
+                Download it and share your AIM Method completion.
+              </p>
+            </div>
+            <span className="text-gray-500 group-hover:text-purple-400 text-lg flex-shrink-0 transition-colors">
+              →
+            </span>
+          </Link>
+        )}
 
         {/* Your Course */}
         <div>
