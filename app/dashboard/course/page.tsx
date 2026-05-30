@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { getSession, getProgress } from "@/lib/auth";
 import { MODULES } from "@/lib/courseData";
 import { isModuleUnlocked } from "@/lib/moduleAccess";
+import { LessonThumbnail } from "@/components/LessonThumbnail";
 
 const COURSE_TITLE = "AIM Method";
 const TOTAL_LESSONS = MODULES.reduce((acc, m) => acc + m.lessons.length, 0);
@@ -134,18 +134,11 @@ export default function CoursePage() {
                           className="glass-card rounded-2xl p-3 flex items-center gap-4 opacity-50 cursor-not-allowed"
                           aria-disabled="true"
                         >
-                          <div className="relative w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 rounded-xl overflow-hidden">
-                            <Image
-                              src={lesson.thumbnail}
-                              alt={lesson.title}
-                              fill
-                              className="object-cover grayscale"
-                              sizes="96px"
-                            />
-                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                              <LockIcon className="w-4 h-4 text-gray-300" />
-                            </div>
-                          </div>
+                          <LessonThumbnail
+                            state="locked"
+                            number={idx + 1}
+                            size={60}
+                          />
                           <div className="flex-1 min-w-0">
                             <p className="text-gray-600 text-[10px] uppercase tracking-wider font-semibold">
                               Lesson {idx + 1}
@@ -164,15 +157,11 @@ export default function CoursePage() {
                         href={`/dashboard/module/${mod.id}/lesson/${lesson.id}`}
                         className="glass-card card-hover rounded-2xl p-3 flex items-center gap-4"
                       >
-                        <div className="relative w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 rounded-xl overflow-hidden">
-                          <Image
-                            src={lesson.thumbnail}
-                            alt={lesson.title}
-                            fill
-                            className="object-cover"
-                            sizes="96px"
-                          />
-                        </div>
+                        <LessonThumbnail
+                          state={isCompleted ? "completed" : "available"}
+                          number={idx + 1}
+                          size={60}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-gray-500 text-[10px] uppercase tracking-wider font-semibold">
                             Lesson {idx + 1}
@@ -180,17 +169,6 @@ export default function CoursePage() {
                           <p className="text-white text-sm font-bold truncate">
                             {lesson.title}
                           </p>
-                        </div>
-                        <div className="flex-shrink-0">
-                          {isCompleted ? (
-                            <div className="w-9 h-9 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-green-400 text-sm">
-                              ✓
-                            </div>
-                          ) : (
-                            <div className="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm">
-                              ▶
-                            </div>
-                          )}
                         </div>
                       </Link>
                     );
@@ -202,9 +180,11 @@ export default function CoursePage() {
                       href={`/dashboard/module/${mod.id}/quiz`}
                       className="glass-card card-hover rounded-2xl p-3 flex items-center gap-4 border-purple-500/20"
                     >
-                      <div className="w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-2xl">
-                        {quizDone ? "🎯" : "📝"}
-                      </div>
+                      <LessonThumbnail
+                        state={quizDone ? "completed" : "available"}
+                        emoji={quizDone ? "🎯" : "📝"}
+                        size={60}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-purple-400 text-[10px] uppercase tracking-wider font-semibold">
                           Quiz
@@ -213,26 +193,13 @@ export default function CoursePage() {
                           Module {mod.id} Quiz
                         </p>
                       </div>
-                      <div className="flex-shrink-0">
-                        {quizDone ? (
-                          <div className="w-9 h-9 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center text-green-400 text-sm">
-                            ✓
-                          </div>
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 text-sm">
-                            ▶
-                          </div>
-                        )}
-                      </div>
                     </Link>
                   ) : (
                     <div
                       className="glass-card rounded-2xl p-3 flex items-center gap-4 opacity-50 cursor-not-allowed"
                       aria-disabled="true"
                     >
-                      <div className="w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0 rounded-xl bg-white/3 border border-white/10 flex items-center justify-center">
-                        <LockIcon className="w-5 h-5 text-gray-500" />
-                      </div>
+                      <LessonThumbnail state="locked" emoji="📝" size={60} />
                       <div className="flex-1 min-w-0">
                         <p className="text-gray-600 text-[10px] uppercase tracking-wider font-semibold">
                           Quiz
