@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { MODULES } from "@/lib/courseData";
 import { isModuleUnlocked } from "@/lib/moduleAccess";
+import { LessonThumbnail } from "@/components/LessonThumbnail";
 
 interface Props {
   currentModuleId: number;
@@ -115,7 +116,11 @@ export function CourseNavSidebar({
                           className="flex items-center gap-3 px-2 py-2 rounded-lg opacity-40 cursor-not-allowed"
                           aria-disabled="true"
                         >
-                          <LockIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                          <LessonThumbnail
+                            state="locked"
+                            number={idx + 1}
+                            size={40}
+                          />
                           <div className="flex-1 min-w-0">
                             <p className="text-gray-600 text-[10px]">
                               Lesson {idx + 1}
@@ -132,6 +137,13 @@ export function CourseNavSidebar({
                       ? "bg-purple-500/15 border border-purple-500/40"
                       : "border border-transparent hover:bg-white/5 hover:border-white/10";
 
+                    // Priority: current > completed > available
+                    const thumbState = isCurrent
+                      ? "current"
+                      : isCompleted
+                        ? "completed"
+                        : "available";
+
                     return (
                       <Link
                         key={lesson.id}
@@ -139,23 +151,11 @@ export function CourseNavSidebar({
                         aria-current={isCurrent ? "page" : undefined}
                         className={`flex items-center gap-3 px-2 py-2 rounded-lg transition-colors ${itemCls}`}
                       >
-                        <div className="flex-shrink-0">
-                          {isCompleted ? (
-                            <div className="w-5 h-5 rounded-full bg-green-500/25 border border-green-500/50 flex items-center justify-center text-green-400 text-[10px]">
-                              ✓
-                            </div>
-                          ) : (
-                            <div
-                              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-                                isCurrent
-                                  ? "bg-purple-500/30 border border-purple-400/60 text-purple-200"
-                                  : "bg-white/5 border border-white/10 text-gray-400"
-                              }`}
-                            >
-                              ▶
-                            </div>
-                          )}
-                        </div>
+                        <LessonThumbnail
+                          state={thumbState}
+                          number={idx + 1}
+                          size={40}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-gray-500 text-[10px]">
                             Lesson {idx + 1}
@@ -178,27 +178,28 @@ export function CourseNavSidebar({
                       href={`/dashboard/module/${mod.id}/quiz`}
                       className="flex items-center gap-3 px-2 py-2 rounded-lg border border-transparent hover:bg-white/5 hover:border-white/10 transition-colors"
                     >
-                      <div className="flex-shrink-0 text-base leading-none w-5 h-5 flex items-center justify-center">
-                        {quizDone ? "🎯" : "📝"}
-                      </div>
+                      <LessonThumbnail
+                        state={quizDone ? "completed" : "available"}
+                        emoji={quizDone ? "🎯" : "📝"}
+                        size={40}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-gray-500 text-[10px]">Quiz</p>
                         <p className="text-gray-300 text-xs font-semibold truncate">
                           Module {mod.id} Quiz
                         </p>
                       </div>
-                      {quizDone && (
-                        <div className="w-5 h-5 rounded-full bg-green-500/25 border border-green-500/50 flex items-center justify-center text-green-400 text-[10px] flex-shrink-0">
-                          ✓
-                        </div>
-                      )}
                     </Link>
                   ) : (
                     <div
                       className="flex items-center gap-3 px-2 py-2 rounded-lg opacity-40 cursor-not-allowed"
                       aria-disabled="true"
                     >
-                      <LockIcon className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <LessonThumbnail
+                        state="locked"
+                        emoji="📝"
+                        size={40}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-gray-600 text-[10px]">Quiz</p>
                         <p className="text-gray-400 text-xs truncate font-semibold">
