@@ -7,6 +7,7 @@ import Image from "next/image";
 import { getSession, isLessonComplete } from "@/lib/auth";
 import { getModule } from "@/lib/courseData";
 import { isModuleUnlocked } from "@/lib/moduleAccess";
+import { QuizCTA } from "@/components/QuizCTA";
 
 export default function ModulePage() {
   const router = useRouter();
@@ -109,6 +110,14 @@ export default function ModulePage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <main className="max-w-3xl mx-auto px-5 py-10">
+        {/* Back nav */}
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center text-gray-500 hover:text-purple-400 text-sm transition-colors mb-6"
+        >
+          ← Back to Dashboard
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/25 rounded-full px-3 py-1 text-xs text-purple-300 mb-3">
@@ -168,32 +177,8 @@ export default function ModulePage() {
         </div>
 
         {/* Quiz CTA */}
-        <div className="mt-8 glass-card rounded-2xl p-6 text-center">
-          <div className="text-3xl mb-2">{quizCompleted ? "🎯" : "📝"}</div>
-          <h3 className="text-white font-bold text-lg mb-1">
-            {quizCompleted ? "Quiz completed" : "Ready for the Module Quiz?"}
-          </h3>
-          <p className="text-gray-400 text-sm mb-5">
-            {quizCompleted
-              ? "You've already completed this quiz. Feel free to retake it anytime."
-              : `Test what you learned in Module ${mod.id}. Passing the quiz unlocks the next module.`}
-          </p>
-          <Link
-            href={`/dashboard/module/${mod.id}/quiz`}
-            className="purple-btn text-white font-bold py-3 px-6 rounded-xl text-sm inline-block"
-          >
-            {quizCompleted ? "Retake Quiz" : "Take the Module Quiz"}
-          </Link>
-        </div>
-
-        {/* Back */}
-        <div className="mt-10">
-          <Link
-            href="/dashboard"
-            className="text-gray-500 hover:text-purple-400 text-sm transition-colors"
-          >
-            ← Back to Dashboard
-          </Link>
+        <div className="mt-8">
+          <QuizCTA moduleId={mod.id} quizCompleted={quizCompleted} />
         </div>
       </main>
     </div>

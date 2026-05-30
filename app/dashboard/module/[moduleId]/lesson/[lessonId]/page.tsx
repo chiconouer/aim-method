@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { getSession, markComplete, isLessonComplete } from "@/lib/auth";
-import { getLesson, getAdjacentLessons } from "@/lib/courseData";
+import { getLesson, getAdjacentLessons, getModule } from "@/lib/courseData";
+import { QuizCTA } from "@/components/QuizCTA";
 
 export default function LessonPage() {
   const router = useRouter();
@@ -14,6 +15,12 @@ export default function LessonPage() {
 
   const [ready, setReady] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const [quizCompleted, setQuizCompleted] = useState<boolean | null>(null);
+
+  const modForLast = getModule(moduleId);
+  const isLastLesson =
+    !!modForLast &&
+    modForLast.lessons[modForLast.lessons.length - 1].id === lessonId;
 
   useEffect(() => {
     const session = getSession();
@@ -23,7 +30,18 @@ export default function LessonPage() {
     }
     setCompleted(isLessonComplete(moduleId, lessonId));
     setReady(true);
-  }, [router, moduleId, lessonId]);
+
+    if (!isLastLesson) return;
+    fetch(`/api/quiz/status?email=${encodeURIComponent(session.email)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const completed: number[] = Array.isArray(data?.completedModules)
+          ? data.completedModules
+          : [];
+        setQuizCompleted(completed.includes(moduleId));
+      })
+      .catch(() => setQuizCompleted(false));
+  }, [router, moduleId, lessonId, isLastLesson]);
 
   function handleMarkComplete() {
     markComplete(moduleId, lessonId);
@@ -56,6 +74,14 @@ export default function LessonPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       <main className="max-w-3xl mx-auto px-5 py-8">
+        {/* Back nav */}
+        <Link
+          href={`/dashboard/module/${moduleId}`}
+          className="inline-flex items-center text-gray-500 hover:text-purple-400 text-sm transition-colors mb-6"
+        >
+          ← Back to Module {moduleId}
+        </Link>
+
         {/* Lesson header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-2">
@@ -151,6 +177,13 @@ export default function LessonPage() {
             </div>
           )}
         </div>
+
+        {/* Quiz CTA — only on the last lesson of the module */}
+        {isLastLesson && quizCompleted !== null && (
+          <div className="mb-8">
+            <QuizCTA moduleId={moduleId} quizCompleted={quizCompleted} />
+          </div>
+        )}
 
         {/* Prev / Next navigation */}
         <div className="flex gap-3">
