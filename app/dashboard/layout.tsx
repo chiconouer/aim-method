@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AIMAssistant } from "@/components/AIMAssistant";
 
 const navItems = [
   {
@@ -163,6 +164,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {children}
       </div>
+
+      {/* Floating AI support chat — visible on all /dashboard/* pages */}
+      <AIMAssistant />
     </div>
   );
 }
