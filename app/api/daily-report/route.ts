@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
 const TIME_ZONE = "America/New_York";
-const TYPEFORM_FORM_ID = process.env.TYPEFORM_FORM_ID ?? "javrkILE";
 
 type SaleRow = {
   buyer_email: string | null;
@@ -381,7 +380,6 @@ export async function GET(req: NextRequest) {
         } else {
           lines.push(`⏳ Hasn't booked call yet`);
         }
-        lines.push(`🔗 View in Typeform: https://admin.typeform.com/form/${TYPEFORM_FORM_ID}/results#responses`);
         lines.push("");
       }
       messages.push(...chunkByDiscordLimit(lines));
@@ -423,7 +421,7 @@ export async function GET(req: NextRequest) {
                 : JSON.stringify(answer);
             lines.push(`- ${question}: "${value}"`);
           }
-          lines.push(`🔗 View Typeform answers: https://admin.typeform.com/form/${TYPEFORM_FORM_ID}/results#responses`);
+          // (Detailed answers live in the realtime Discord notification + applies table.)
         } else {
           lines.push(`⚠️ No Typeform apply found`);
         }
