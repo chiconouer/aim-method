@@ -154,6 +154,54 @@ body {
   30%           { transform: translateY(-4px); opacity: 1; }
 }
 
+/* react-phone-number-input dark-theme overrides for the /apply form */
+.apply-phone-input .PhoneInput {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  transition: border-color 0.15s ease;
+}
+.apply-phone-input .PhoneInput:focus-within {
+  border-color: rgba(139, 92, 246, 0.6);
+}
+.apply-phone-input .PhoneInputCountry {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+}
+.apply-phone-input .PhoneInputCountrySelect {
+  background: transparent;
+  color: #ffffff;
+}
+.apply-phone-input .PhoneInputCountryIcon {
+  background-color: transparent;
+  box-shadow: none;
+}
+.apply-phone-input .PhoneInputCountryIcon--border {
+  background-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.10);
+}
+.apply-phone-input .PhoneInputCountrySelectArrow {
+  color: #a78bfa;
+  opacity: 1;
+}
+.apply-phone-input .PhoneInputInput {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 1rem;
+  padding: 0.65rem 0.25rem;
+}
+.apply-phone-input .PhoneInputInput::placeholder {
+  color: #4b5563;
+}
+
 @layer utilities {
   .quiz-pop-in        { animation: quizPopIn 0.4s ease-out; }
   .quiz-correct-pulse { animation: quizCorrectPulse 0.8s ease-out; }

@@ -231,24 +231,24 @@ export function AIMAssistant() {
   );
 }
 
-const TYPEFORM_APPLY_URL = "https://form.typeform.com/to/javrkILE";
-const TYPEFORM_URL_REGEX = /https:\/\/form\.typeform\.com\/to\/javrkILE\/?/g;
+const APPLY_URL = "https://course.aimodelmethods.com/apply";
+const APPLY_URL_REGEX = /https:\/\/course\.aimodelmethods\.com\/apply\/?/g;
 
-function hasTypeformApplyLink(content: string): boolean {
-  return /form\.typeform\.com\/to\/javrkILE/.test(content);
+function hasApplyLink(content: string): boolean {
+  return /course\.aimodelmethods\.com\/apply/.test(content);
 }
 
-// Removes the Typeform application URL from the assistant text (the dedicated
-// Apply button below the bubble replaces it). Handles both "URL on its own
-// line" (preferred per system prompt) and inline cases, then collapses the
-// blank lines left behind.
-function stripTypeformLink(text: string): string {
+// Removes the application URL from the assistant text (the dedicated Apply
+// button below the bubble replaces it). Handles both "URL on its own line"
+// (preferred per system prompt) and inline cases, then collapses the blank
+// lines left behind.
+function stripApplyLink(text: string): string {
   return text
     .replace(
-      /^[ \t]*https:\/\/form\.typeform\.com\/to\/javrkILE\/?[ \t]*$/gm,
+      /^[ \t]*https:\/\/course\.aimodelmethods\.com\/apply\/?[ \t]*$/gm,
       "",
     )
-    .replace(TYPEFORM_URL_REGEX, "")
+    .replace(APPLY_URL_REGEX, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -309,9 +309,9 @@ function MessageBubble({ message }: { message: ChatMessage }) {
     );
   }
 
-  const hasApply = hasTypeformApplyLink(message.content);
+  const hasApply = hasApplyLink(message.content);
   const displayText = hasApply
-    ? stripTypeformLink(message.content)
+    ? stripApplyLink(message.content)
     : message.content;
 
   return (
@@ -323,7 +323,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       )}
       {hasApply && (
         <a
-          href={TYPEFORM_APPLY_URL}
+          href={APPLY_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="purple-btn text-white font-bold py-3 px-5 rounded-xl text-sm text-center"

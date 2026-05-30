@@ -149,8 +149,6 @@ export async function processApply(data: ApplyData): Promise<{ ok: true }> {
         "",
         "**Answers:**",
         ...answersLines,
-        "",
-        "🔗 [View in Typeform](https://admin.typeform.com/form/javrkILE/results#responses)",
       ].join("\n");
       await postToDiscordWebhook(webhookUrl, content);
     } catch (err) {
