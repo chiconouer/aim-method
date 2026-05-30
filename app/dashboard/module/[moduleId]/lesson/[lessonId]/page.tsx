@@ -3,9 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { getSession, markComplete, isLessonComplete } from "@/lib/auth";
+import {
+  getSession,
+  markComplete,
+  isLessonComplete,
+  getProgress,
+} from "@/lib/auth";
 import { getLesson, getAdjacentLessons, getModule } from "@/lib/courseData";
 import { QuizCTA } from "@/components/QuizCTA";
+import { CourseNavSidebar } from "@/components/CourseNavSidebar";
 
 export default function LessonPage() {
   const router = useRouter();
@@ -15,12 +21,15 @@ export default function LessonPage() {
 
   const [ready, setReady] = useState(false);
   const [completed, setCompleted] = useState(false);
-  const [quizCompleted, setQuizCompleted] = useState<boolean | null>(null);
+  const [completedModules, setCompletedModules] = useState<number[]>([]);
+  const [statusReady, setStatusReady] = useState(false);
+  const [progressMap, setProgressMap] = useState<Record<string, boolean>>({});
 
   const modForLast = getModule(moduleId);
   const isLastLesson =
     !!modForLast &&
     modForLast.lessons[modForLast.lessons.length - 1].id === lessonId;
+  const quizCompleted = completedModules.includes(moduleId);
 
   useEffect(() => {
     const session = getSession();
@@ -29,23 +38,28 @@ export default function LessonPage() {
       return;
     }
     setCompleted(isLessonComplete(moduleId, lessonId));
+    setProgressMap(getProgress());
     setReady(true);
 
-    if (!isLastLesson) return;
     fetch(`/api/quiz/status?email=${encodeURIComponent(session.email)}`)
       .then((r) => r.json())
       .then((data) => {
         const completed: number[] = Array.isArray(data?.completedModules)
           ? data.completedModules
           : [];
-        setQuizCompleted(completed.includes(moduleId));
+        setCompletedModules(completed);
       })
-      .catch(() => setQuizCompleted(false));
-  }, [router, moduleId, lessonId, isLastLesson]);
+      .catch(() => {
+        // Fail closed — sidebar treats every module past 1 as locked
+        setCompletedModules([]);
+      })
+      .finally(() => setStatusReady(true));
+  }, [router, moduleId, lessonId]);
 
   function handleMarkComplete() {
     markComplete(moduleId, lessonId);
     setCompleted(true);
+    setProgressMap(getProgress());
   }
 
   const data = getLesson(moduleId, lessonId);
@@ -73,7 +87,10 @@ export default function LessonPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
-      <main className="max-w-3xl mx-auto px-5 py-8">
+      <main className="max-w-6xl mx-auto px-5 py-8">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-8">
+          {/* MAIN COLUMN */}
+          <div className="min-w-0">
         {/* Back nav */}
         <Link
           href={`/dashboard/module/${moduleId}`}
@@ -179,7 +196,7 @@ export default function LessonPage() {
         </div>
 
         {/* Quiz CTA — only on the last lesson of the module */}
-        {isLastLesson && quizCompleted !== null && (
+        {isLastLesson && statusReady && (
           <div className="mb-8">
             <QuizCTA moduleId={moduleId} quizCompleted={quizCompleted} />
           </div>
@@ -213,6 +230,18 @@ export default function LessonPage() {
               🎉 Back to Dashboard
             </Link>
           )}
+        </div>
+          </div>
+
+          {/* SIDEBAR COLUMN */}
+          <aside className="mt-10 lg:mt-0 lg:sticky lg:top-8 lg:self-start lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
+            <CourseNavSidebar
+              currentModuleId={moduleId}
+              currentLessonId={lessonId}
+              completedModules={completedModules}
+              progressMap={progressMap}
+            />
+          </aside>
         </div>
       </main>
     </div>
