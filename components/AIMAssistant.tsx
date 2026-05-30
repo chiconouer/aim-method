@@ -10,10 +10,10 @@ interface ChatMessage {
 }
 
 const SUGGESTED_QUESTIONS = [
-  "What type of content should I post?",
-  "How do I warm up my Instagram?",
-  "What's the posting strategy?",
-  "Give me reel ideas that go viral",
+  "Where do I find my course?",
+  "How does the platform work?",
+  "How do I unlock the next module?",
+  "Where is the AI Model Store?",
 ];
 
 const WELCOME_TEXT =
