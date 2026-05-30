@@ -27,6 +27,11 @@ export function AIMAssistant() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Tracks how much of the layout viewport is occluded by the on-screen
+  // keyboard. 0 when no keyboard is up. Only changes on mobile / iOS Safari —
+  // desktop browsers don't fire visualViewport resize events on focus, so this
+  // stays 0 and the inline style override is a no-op.
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +45,7 @@ export function AIMAssistant() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, keyboardOffset]);
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -49,6 +54,39 @@ export function AIMAssistant() {
       return () => clearTimeout(t);
     }
   }, [isOpen, isExpanded]);
+
+  // Track the soft keyboard via visualViewport — only when the chat is open.
+  // The chat container's `bottom` is then overridden inline so the input
+  // stays anchored above the keyboard and messages stay visible.
+  useEffect(() => {
+    if (!isOpen) {
+      setKeyboardOffset(0);
+      return;
+    }
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    let raf: number | null = null;
+    const update = () => {
+      if (raf !== null) return;
+      raf = requestAnimationFrame(() => {
+        raf = null;
+        const offset = Math.max(
+          0,
+          window.innerHeight - vv.height - vv.offsetTop,
+        );
+        setKeyboardOffset(offset);
+      });
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+      if (raf !== null) cancelAnimationFrame(raf);
+      setKeyboardOffset(0);
+    };
+  }, [isOpen]);
 
   async function send(text: string) {
     const trimmed = text.trim();
@@ -125,6 +163,11 @@ export function AIMAssistant() {
             isExpanded
               ? "fixed inset-4 sm:inset-10 md:inset-16 z-50 flex flex-col glass-card rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
               : "fixed z-50 flex flex-col glass-card rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)] bottom-24 right-5 left-5 top-20 sm:left-auto sm:top-auto sm:bottom-24 sm:right-6 sm:w-[380px] sm:h-[600px] sm:max-h-[calc(100vh-7rem)]"
+          }
+          style={
+            keyboardOffset > 0
+              ? { bottom: `${keyboardOffset}px` }
+              : undefined
           }
         >
           {/* Header */}
@@ -214,7 +257,10 @@ export function AIMAssistant() {
               }
               disabled={!email || isLoading}
               maxLength={500}
-              className="flex-1 bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-gray-500 disabled:opacity-50"
+              // text-base (16px) on mobile prevents iOS Safari's auto-zoom on
+              // focus, which would otherwise warp the whole chat. sm:text-sm
+              // keeps the desktop input visually unchanged.
+              className="flex-1 bg-white/5 border border-white/10 focus:border-purple-500/50 focus:outline-none rounded-xl px-4 py-2.5 text-white text-base sm:text-sm placeholder:text-gray-500 disabled:opacity-50"
             />
             <button
               type="submit"
