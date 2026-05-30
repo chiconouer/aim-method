@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getSession, getProgress, User } from "@/lib/auth";
 import { MODULES } from "@/lib/courseData";
 import { isModuleUnlocked } from "@/lib/moduleAccess";
+import { OnboardingTour } from "@/components/OnboardingTour";
 
 const COURSE_TITLE = "AIM Method";
 const TOTAL_LESSONS = MODULES.reduce((acc, m) => acc + m.lessons.length, 0);
@@ -94,7 +95,10 @@ export default function DashboardHomePage() {
         {/* Continue card + Profile card */}
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5 mb-8">
           {/* Continue */}
-          <div className="glass-card rounded-2xl p-6 flex flex-col gap-5">
+          <div
+            data-tour="continue-card"
+            className="glass-card rounded-2xl p-6 flex flex-col gap-5"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-purple-400 text-xs font-bold uppercase tracking-wider mb-1">
@@ -134,6 +138,7 @@ export default function DashboardHomePage() {
                 </div>
                 <Link
                   href="/dashboard/course"
+                  data-tour="continue-button"
                   className="outline-btn font-bold py-3 px-6 rounded-xl text-sm flex-shrink-0"
                 >
                   Review Course
@@ -151,6 +156,7 @@ export default function DashboardHomePage() {
                 </div>
                 <Link
                   href={`/dashboard/module/${next.module.id}/lesson/${next.lesson.id}`}
+                  data-tour="continue-button"
                   className="purple-btn text-white font-bold py-3 px-6 rounded-xl text-sm flex-shrink-0"
                 >
                   {isStart ? "Start" : "Continue"} →
@@ -206,6 +212,9 @@ export default function DashboardHomePage() {
           </Link>
         </div>
       </main>
+
+      {/* First-visit onboarding tour. Self-gated by localStorage. */}
+      <OnboardingTour />
     </div>
   );
 }
