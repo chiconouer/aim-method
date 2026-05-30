@@ -142,6 +142,7 @@ export function AIMAssistant() {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-label={isOpen ? "Close AIM Assistant" : "Open AIM Assistant"}
+        data-tour="ai-assistant-button"
         className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 to-purple-700 text-white flex items-center justify-center shadow-[0_8px_30px_rgba(139,92,246,0.45)] hover:shadow-[0_10px_40px_rgba(139,92,246,0.7)] hover:-translate-y-0.5 transition-all"
       >
         {isOpen ? <CloseIcon /> : <ChatIcon />}
