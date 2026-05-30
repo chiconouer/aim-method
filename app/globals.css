@@ -149,6 +149,11 @@ body {
   50%      { transform: translateY(-12px) scale(1.05); }
 }
 
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30%           { transform: translateY(-4px); opacity: 1; }
+}
+
 @layer utilities {
   .quiz-pop-in        { animation: quizPopIn 0.4s ease-out; }
   .quiz-correct-pulse { animation: quizCorrectPulse 0.8s ease-out; }
