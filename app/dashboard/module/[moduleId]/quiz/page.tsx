@@ -170,7 +170,7 @@ export default function QuizPage() {
             </p>
           ) : (
             <p className="text-gray-300 text-sm mb-6 leading-relaxed">
-              Your score was a bit low. I'd recommend reviewing this module
+              Your score was a bit low. I&apos;d recommend reviewing this module
               before moving on — but the next module is now unlocked if you
               want to continue.
             </p>
@@ -179,7 +179,7 @@ export default function QuizPage() {
           {isLastModule ? (
             <div className="bg-purple-500/10 border border-purple-500/25 rounded-xl p-4 mb-4">
               <p className="text-purple-300 font-bold text-sm">
-                You've completed all modules! 🏆
+                You&apos;ve completed all modules! 🏆
               </p>
               <p className="text-gray-400 text-xs mt-1">
                 Time to put it into action.
@@ -212,7 +212,7 @@ export default function QuizPage() {
         <div className="glass-card rounded-2xl p-8 max-w-md w-full text-center">
           <div className="text-4xl mb-3">⚠️</div>
           <h1 className="text-xl font-extrabold text-white mb-2">
-            Couldn't save your quiz
+            Couldn&apos;t save your quiz
           </h1>
           <p className="text-gray-400 text-sm mb-5">
             {submitError ?? "Something went wrong."} Please try again.
