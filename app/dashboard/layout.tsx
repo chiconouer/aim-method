@@ -3,6 +3,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AIMAssistant } from "@/components/AIMAssistant";
+import {
+  AIMAssistantProvider,
+  useAIMAssistant,
+} from "@/components/AIMAssistantContext";
 
 const navItems = [
   {
@@ -38,12 +42,32 @@ const navItems = [
   },
 ];
 
+const ChatIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+  </svg>
+);
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AIMAssistantProvider>
+      <DashboardLayoutBody>{children}</DashboardLayoutBody>
+    </AIMAssistantProvider>
+  );
+}
+
+function DashboardLayoutBody({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { openExpanded } = useAIMAssistant();
 
   function handleSignOut() {
     window.location.href = "/";
+  }
+
+  function handleOpenAssistant() {
+    openExpanded();
+    setOpen(false);
   }
 
   const SidebarContent = () => (
@@ -92,6 +116,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           );
         })}
+
+        {/* AIM Assistant — opens chat in expanded mode */}
+        <button
+          type="button"
+          onClick={handleOpenAssistant}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+        >
+          {ChatIcon}
+          AIM Assistant
+        </button>
       </nav>
 
       {/* Sign out */}
