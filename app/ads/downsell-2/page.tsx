@@ -106,24 +106,16 @@ export default function AdsDownsell2Page() {
                 🚀 CLAIM MY DISCOUNT
               </a>
 
-              {!hasCheckout && (
-                <p
-                  className="mt-4 text-[10px] text-gray-600 uppercase tracking-[0.2em]"
-                  aria-hidden="true"
-                >
-                  ⚙️ Checkout link pending — placeholder mode
-                </p>
-              )}
             </div>
           </div>
         )}
 
-        {/* NO THANKS */}
+        {/* NO THANKS — exits the funnel to the course */}
         <div className="mt-12">
           <a
-            href="https://course.aimodelmethods.com"
+            href="https://course.aimodelmethods.com/dashboard"
             target="_self"
-            className="text-base text-neutral-500 underline hover:text-neutral-300 transition-colors"
+            className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
           >
             No thanks, take me to the course
           </a>
