@@ -1,31 +1,47 @@
+// =============================================================
+// Upsell 1 — 3x More Offer ($47 one-time)
+// -------------------------------------------------------------
+// Public funnel page at /upsell-1. Visual cloned from the photos
+// sales page (now at /upsell-2) — same dark card, purple
+// gradient CTA, animations.
+//
+// Angle: the customer just bought the main product. This upgrade
+// is the leverage layer that 3x's their results without 3x'ing
+// the work. Single $47 charge, not recurring.
+//
+// Old route /weekly is preserved as a 301 redirect in
+// next.config.mjs for any external links still in the wild.
+//
+// ⚠️ CHECKOUT NOT WIRED YET. The CHECKOUT_URL constant below is
+// the SINGLE place to swap once Digistore product is created —
+// drop the live checkout URL into the empty string, no other
+// changes required.
+//
+// (Photos post-purchase delivery subroutes now live under
+// /upsell-2/{preferences,my-model,thank-you} — webhooks generate
+// URLs there. Old /upsell-1/* subroute paths are kept alive via
+// 301 redirects in next.config.mjs so any in-flight emails from
+// before the rename still resolve.)
+// =============================================================
+
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+// ───── HERE: paste the Digistore checkout URL when ready ─────
+// Up1 / 3x More Offer — $47 one-time upsell.
+// While empty, the button renders identically but won't navigate.
+const CHECKOUT_URL = "";
+// ─────────────────────────────────────────────────────────────
 
-// Black-hat $197 checkout — Hotmart product U106013301D, offer l3jwqomo.
-const CHECKOUT_URL = "https://pay.hotmart.com/U106013301D?off=l3jwqomo&checkoutMode=10&sck=organico";
-const DOWNSELL_HREF = "/downsell-1";
+const BULLETS: string[] = [
+  "The hidden multipliers that turn the same effort into 3x the output",
+  "Plug-and-play frameworks built to stack on top of what you just bought",
+  "Skip months of trial and error — go straight to what actually 3x's results",
+  "Compounding leverage: small inputs, outsized returns",
+  "Lifetime access — pay once, yours forever",
+];
 
-export default function UpsellPage() {
-  // VSL facade state
-  const [showSoundOverlay, setShowSoundOverlay] = useState(true);
-  const [showCTAs, setShowCTAs] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  // Reveal upgrade CTAs 120 seconds after mount
-  useEffect(() => {
-    const t = setTimeout(() => setShowCTAs(true), 120_000);
-    return () => clearTimeout(t);
-  }, []);
-
-  // YouTube JS API postMessage to unmute the muted-autoplay video
-  function handleUnmute() {
-    iframeRef.current?.contentWindow?.postMessage(
-      '{"event":"command","func":"unMute","args":""}',
-      "*",
-    );
-    setShowSoundOverlay(false);
-  }
+export default function WeeklyUpsellPage() {
+  const hasCheckout = CHECKOUT_URL.length > 0;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
@@ -45,8 +61,8 @@ export default function UpsellPage() {
             boxShadow: "0 0 40px rgba(124,58,237,0.12)",
           }}
         >
-          {/* Funnel step label */}
-          <div className="flex justify-center mb-4">
+          {/* Eyebrow badge */}
+          <div className="flex justify-center">
             <span
               className="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-[0.2em] uppercase text-white"
               style={{
@@ -54,110 +70,124 @@ export default function UpsellPage() {
                 paddingLeft: "calc(0.75rem + 0.2em)",
               }}
             >
-              Upsell 2
+              Upsell 1
             </span>
           </div>
 
-          {/* Headline row */}
-          <div className="flex items-center gap-3">
-            <svg
-              className="animate-spin w-5 h-5 text-purple-400 flex-shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
-              <path
-                d="M22 12a10 10 0 0 1-10 10"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </svg>
-            <p className="text-base sm:text-lg font-bold text-white leading-tight">
-              Your purchase is being processed...
-            </p>
-          </div>
-          <p className="text-[12px] sm:text-sm text-gray-400 leading-relaxed mt-1 ml-8">
-            While you wait, watch the first lesson of the course 👇
+          {/* Headline */}
+          <h1 className="mt-4 text-center text-2xl sm:text-3xl font-black leading-tight text-white">
+            Get <span className="text-purple-400">3x More Results</span> —
+            Without Doing 3x The Work
+          </h1>
+          <p className="mt-3 text-center text-[13px] sm:text-sm text-gray-400 leading-relaxed">
+            You just locked in the system. This upgrade gives you the
+            multipliers — the leverage points that turn the same effort into
+            triple the output.
           </p>
 
-          {/* Video + sound overlay */}
+          {/* Video / VSL placeholder.
+              Drop a YouTube embed URL into the iframe `src` when the VSL is
+              ready. Keeping the exact frame shape as /upsell-1 so the look
+              matches when the real video lands. */}
           <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black mt-5 border border-white/5">
-            <iframe
-              ref={iframeRef}
-              src="https://www.youtube.com/embed/RyOUKVc7mbk?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&playsinline=1&enablejsapi=1"
-              title="Lesson"
-              className="absolute inset-0 w-full h-full"
-              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-
-            {showSoundOverlay && (
-              <button
-                type="button"
-                onClick={handleUnmute}
-                aria-label="Tap to unmute the video"
-                className="absolute inset-0 flex items-center justify-center bg-black/45 cursor-pointer focus:outline-none focus-visible:bg-black/55 transition-colors"
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6"
+              style={{
+                background:
+                  "radial-gradient(ellipse at center,#1a1233 0%,#080810 75%)",
+              }}
+            >
+              <div
+                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl"
+                style={{
+                  background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+                  boxShadow: "0 0 30px rgba(124,58,237,0.55)",
+                }}
               >
-                <span
-                  className="flex items-center gap-2 px-6 py-4 sm:px-8 sm:py-5 rounded-2xl text-white text-base sm:text-lg font-black tracking-wide"
-                  style={{
-                    background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-                    boxShadow:
-                      "0 0 30px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.15)",
-                    minHeight: "48px",
-                    animation: "soundPulse 1.6s ease-in-out infinite",
-                  }}
-                >
-                  <span className="text-2xl" aria-hidden="true">🔊</span>
-                  TAP TO UNMUTE
-                </span>
-              </button>
-            )}
+                ▶
+              </div>
+              <p className="text-purple-300 text-[11px] font-bold uppercase tracking-[0.2em]">
+                Pitch Video
+              </p>
+              <p className="text-gray-500 text-[11px]">
+                VSL drops here — swap the placeholder for the real iframe
+              </p>
+            </div>
           </div>
 
-          {/* Upgrade CTAs — hidden until 120s elapses.
-              Wrapper always rendered with min-height so revealing doesn't
-              shift the page. Children only mounted once showCTAs flips,
-              and fade in via opacity transition. */}
-          <div
-            className={`mt-6 min-h-[160px] transition-opacity duration-700 ease-out ${
-              showCTAs ? "opacity-100" : "opacity-0 pointer-events-none"
-            }`}
-            aria-hidden={!showCTAs}
-          >
-            {showCTAs && (
-              <>
-                <a
-                  href={CHECKOUT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden"
+          {/* Bullets */}
+          <ul className="mt-6 flex flex-col gap-3">
+            {BULLETS.map((b) => (
+              <li key={b} className="flex items-start gap-3">
+                <span
+                  className="flex-shrink-0 mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-black text-white"
                   style={{
-                    background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-                    boxShadow:
-                      "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-                    animation: "btnGlow 3s ease-in-out infinite",
+                    background:
+                      "linear-gradient(135deg,#7c3aed,#a78bfa)",
                   }}
+                  aria-hidden="true"
                 >
-                  YES — UPGRADE MY ACCESS — $197
-                </a>
-                <p className="text-center text-[10px] text-gray-600 mt-2">
-                  One-time payment · Instant access · Lifetime model
-                </p>
-                <div className="text-center mt-5">
-                  <a
-                    href={DOWNSELL_HREF}
-                    className="text-[12px] text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-4"
-                  >
-                    No thanks
-                  </a>
-                </div>
-              </>
-            )}
+                  ✓
+                </span>
+                <span className="text-[13px] sm:text-sm text-gray-200 leading-relaxed">
+                  {b}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {/* Price block */}
+          <div
+            className="mt-6 rounded-xl px-4 py-4 text-center border border-purple-900/40"
+            style={{
+              background: "linear-gradient(160deg,#0f0a1f,#0a0712)",
+            }}
+          >
+            <p className="text-[10px] uppercase tracking-[0.2em] text-purple-300 font-black">
+              Today
+            </p>
+            <p className="mt-1 text-3xl sm:text-4xl font-black text-white leading-none">
+              $47
+              <span className="text-base sm:text-lg text-gray-400 font-bold ml-1">
+                one-time
+              </span>
+            </p>
+            <p className="mt-2 text-[11px] text-gray-500">
+              One-time payment · Instant lifetime access
+            </p>
           </div>
+
+          {/* CTA button — same gradient + glow animation as /upsell-1 */}
+          <a
+            href={hasCheckout ? CHECKOUT_URL : "#"}
+            target={hasCheckout ? "_blank" : undefined}
+            rel={hasCheckout ? "noopener noreferrer" : undefined}
+            onClick={(e) => {
+              if (!hasCheckout) e.preventDefault();
+            }}
+            aria-disabled={!hasCheckout}
+            className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden mt-5"
+            style={{
+              background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+              boxShadow:
+                "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
+              animation: "btnGlow 3s ease-in-out infinite",
+            }}
+          >
+            YES — TRIPLE MY RESULTS — $47
+          </a>
+          <p className="text-center text-[10px] text-gray-600 mt-2">
+            One-time payment · Instant access · Yours forever
+          </p>
+
+          {!hasCheckout && (
+            <p
+              className="mt-4 text-center text-[10px] text-gray-700 uppercase tracking-[0.2em]"
+              aria-hidden="true"
+            >
+              ⚙️ Checkout link pending — placeholder mode
+            </p>
+          )}
         </div>
       </main>
 
@@ -165,10 +195,6 @@ export default function UpsellPage() {
         @keyframes btnGlow {
           0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
           50%{box-shadow:0 8px 48px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
-        }
-        @keyframes soundPulse {
-          0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(124,58,237,0.6),inset 0 1px 0 rgba(255,255,255,0.15)}
-          50%{transform:scale(1.04);box-shadow:0 0 50px rgba(124,58,237,0.95),inset 0 1px 0 rgba(255,255,255,0.15)}
         }
       `}</style>
     </div>

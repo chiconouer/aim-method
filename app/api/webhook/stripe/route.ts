@@ -58,7 +58,7 @@ function welcomeEmailHTML(firstName: string, loginUrl: string, productName: stri
 }
 
 // Mirror of the Hotmart upsell flow: creates an upsell_orders row and emails
-// the customer the link to /upsell-1/preferences/<id> so they can fill the
+// the customer the link to /upsell-2/preferences/<id> so they can fill the
 // Tally form. Same row schema, same email template — Stripe upsell delivers
 // identical product (11 AI photos) as Hotmart upsell.
 async function provisionUpsellOrderFromStripe({
@@ -115,7 +115,7 @@ async function provisionUpsellOrderFromStripe({
     return;
   }
 
-  const preferencesUrl = `https://aimodelmethods.com/upsell-1/preferences/${row.id}`;
+  const preferencesUrl = `https://aimodelmethods.com/upsell-2/preferences/${row.id}`;
   const upsellFirstName = "there"; // safe-payment doesn't send name in PI payload
 
   const { error: emailErr } = await resend.emails.send({

@@ -1,26 +1,32 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { supabaseAdmin } from "@/lib/supabase";
-import Gallery, { type GeneratedImage } from "./Gallery";
 
-// SEO: keep private — the order_id IS the access token for the gallery.
+// SEO: keep this URL out of Google — the order_id is private to the customer.
 export const metadata: Metadata = {
-  title: "Your AI Model — AIM Method",
+  title: "Your Order — AIM Method",
   robots: { index: false, follow: false },
 };
 
-// Re-query every visit so a refresh picks up new images while generation
-// is still in progress (positions trickle in 1-by-1 from replicate-callback).
+// Never statically cache — every visit re-queries the order so the screen
+// reflects the current status (pending → form_submitted → generating → ready).
 export const dynamic = "force-dynamic";
 
+const TALLY_FORM_URL = "https://tally.so/r/7Ra2g9";
+
+// Quick gate: reject anything that isn't a valid UUID v4-shape string
+// BEFORE hitting Postgres. Postgres would reject malformed UUIDs with an
+// `invalid input syntax for type uuid` error that the catch block treats
+// as a transient DB problem ("snag"). For mis-typed URLs we'd rather show
+// the cleaner "Order not found" copy.
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface OrderRow {
   id: string;
+  customer_email: string;
   customer_name: string | null;
   status: string;
-  generated_images: GeneratedImage[] | null;
 }
 
 interface PageProps {
@@ -36,13 +42,13 @@ async function fetchOrder(
   try {
     const { data, error } = await supabaseAdmin
       .from("upsell_orders")
-      .select("id, customer_name, status, generated_images")
+      .select("id, customer_email, customer_name, status")
       .eq("id", orderId)
       .limit(1)
       .maybeSingle();
     if (error) {
       console.error(
-        `[upsell-mymodel] supabase error orderId=${orderId} err=${error.message}`,
+        `[upsell-preferences] supabase error orderId=${orderId} err=${error.message}`,
       );
       return { order: null, failed: true };
     }
@@ -50,41 +56,39 @@ async function fetchOrder(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(
-      `[upsell-mymodel] unexpected error orderId=${orderId} err=${msg}`,
+      `[upsell-preferences] unexpected error orderId=${orderId} err=${msg}`,
     );
     return { order: null, failed: true };
   }
 }
 
-export default async function MyModelPage({ params }: PageProps) {
+export default async function PreferencesPage({ params }: PageProps) {
   const { order_id } = params;
   const { order, failed } = await fetchOrder(order_id);
 
-  // Funnel state — push back to preferences if they haven't filled the form.
-  if (order && (order.status === "pending" || order.status === "form_submitted")) {
-    redirect(`/upsell-1/preferences/${order.id}`);
+  // Photos already done → push them straight to the gallery.
+  if (order && (order.status === "ready_for_review" || order.status === "delivered")) {
+    redirect(`/upsell-2/my-model/${order.id}`);
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-10 sm:py-16">
-      <div className="w-full max-w-5xl mx-auto">
-        <div className="glass-card rounded-2xl p-6 sm:p-10">
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center px-5 py-10 sm:py-16">
+      <div className="w-full max-w-2xl">
+        <div className="glass-card rounded-2xl p-6 sm:p-10 text-center">
           {!order ? (
             <MissingState failed={failed} />
-          ) : order.status === "generating" ? (
+          ) : order.status === "pending" ? (
+            <PendingState order={order} />
+          ) : order.status === "form_submitted" || order.status === "generating" ? (
             <GeneratingState />
           ) : order.status === "failed" ? (
             <FailedState />
           ) : order.status === "refunded" ? (
             <RefundedState />
-          ) : (order.status === "ready_for_review" || order.status === "delivered") ? (
-            <Gallery
-              images={order.generated_images ?? []}
-              customerName={order.customer_name}
-            />
           ) : (
-            // Defensive fallback for an unknown status — degrade gracefully.
-            <FallbackState />
+            // Defensive fallback — unknown status. Treat as "we got your order"
+            // so the customer doesn't see a broken screen.
+            <UnknownState order={order} />
           )}
         </div>
       </div>
@@ -92,10 +96,58 @@ export default async function MyModelPage({ params }: PageProps) {
   );
 }
 
-// ---------- STATE: generating ----------
+// ---------- STATE: pending — CTA to fill out the Tally form ----------
+function PendingState({ order }: { order: OrderRow }) {
+  const firstName = order.customer_name?.split(" ")[0] || "there";
+  const tallyUrl = `${TALLY_FORM_URL}?order_id=${order.id}`;
+  const shortId = `${order.id.slice(0, 8)}…`;
+
+  return (
+    <>
+      <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
+        Tell us about your{" "}
+        <span className="neon-purple">AI model</span>
+      </h1>
+      <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto mb-8">
+        Hi {firstName} — we got your order. Now we just need a few details so we can generate your custom AI model. Takes about 2 minutes.
+      </p>
+
+      <a
+        href={tallyUrl}
+        className="inline-block bg-purple-600 hover:bg-purple-500 transition-colors text-white font-bold text-base sm:text-lg px-8 py-4 rounded-xl shadow-lg shadow-purple-900/30 mb-6"
+      >
+        Start Form →
+      </a>
+
+      <div className="border border-purple-700/40 bg-purple-900/10 rounded-xl px-5 py-4 text-sm text-gray-300 leading-relaxed max-w-xl mx-auto text-left mb-6">
+        <p className="mb-2"><strong className="text-white">What you&apos;ll fill out:</strong></p>
+        <ul className="list-disc list-inside space-y-1 text-gray-400">
+          <li>Age, ethnicity, hair, eyes, body type, aesthetic</li>
+          <li>Optional: a reference selfie so the AI looks like you</li>
+        </ul>
+        <p className="mt-3 text-gray-400">Your 11 hyperrealistic photos arrive within 24&ndash;48 hours of submission.</p>
+      </div>
+
+      <p className="text-xs text-gray-500 mb-2">
+        Order ID: <span className="font-mono">{shortId}</span>
+      </p>
+      <p className="text-xs text-gray-500">
+        Questions? Email{" "}
+        <a
+          href="mailto:aimodelmethods@gmail.com"
+          className="text-purple-400 hover:underline"
+        >
+          aimodelmethods@gmail.com
+        </a>
+      </p>
+    </>
+  );
+}
+
+// ---------- STATE: form submitted / generating — wait screen ----------
 function GeneratingState() {
   return (
-    <div className="text-center">
+    <>
       <div className="flex justify-center mb-6">
         <svg
           className="animate-spin w-10 h-10 sm:w-12 sm:h-12 text-purple-400"
@@ -125,19 +177,19 @@ function GeneratingState() {
         <span className="neon-purple">generated</span>
       </h1>
       <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto mb-6">
-        Your 11 hyperrealistic AI photos will be ready in <strong className="text-white">24&ndash;48 hours</strong>. We&apos;ll email you the moment they&apos;re done.
+        We got your preferences. Your 11 hyperrealistic AI photos will be ready in <strong className="text-white">24&ndash;48 hours</strong>. We&apos;ll email you the moment they&apos;re done.
       </p>
       <div className="border border-purple-700/40 bg-purple-900/10 rounded-xl px-5 py-4 text-sm text-gray-400 leading-relaxed max-w-xl mx-auto">
-        You can close this page — we have your email on file and you&apos;ll get a notification with a link back here.
+        You can close this page — we have your email on file and you&apos;ll get a notification with a link to your gallery.
       </div>
-    </div>
+    </>
   );
 }
 
 // ---------- STATE: failed ----------
 function FailedState() {
   return (
-    <div className="text-center">
+    <>
       <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
         Something went wrong
       </h1>
@@ -150,14 +202,14 @@ function FailedState() {
       >
         Email Support
       </a>
-    </div>
+    </>
   );
 }
 
 // ---------- STATE: refunded ----------
 function RefundedState() {
   return (
-    <div className="text-center">
+    <>
       <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
         Order refunded
       </h1>
@@ -173,19 +225,21 @@ function RefundedState() {
           aimodelmethods@gmail.com
         </a>
       </p>
-    </div>
+    </>
   );
 }
 
 // ---------- STATE: unknown status — defensive fallback ----------
-function FallbackState() {
+function UnknownState({ order }: { order: OrderRow }) {
+  const firstName = order.customer_name?.split(" ")[0] || "there";
   return (
-    <div className="text-center">
+    <>
       <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
-        We&apos;re on it
+        We got your order{" "}
+        <span className="neon-purple">✅</span>
       </h1>
       <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto mb-6">
-        Your order is being processed. We&apos;ll email you the moment your photos are ready.
+        Hi {firstName}, sit tight &mdash; we&apos;ll email you the next step shortly.
       </p>
       <p className="text-xs text-gray-500">
         Support:{" "}
@@ -196,14 +250,14 @@ function FallbackState() {
           aimodelmethods@gmail.com
         </a>
       </p>
-    </div>
+    </>
   );
 }
 
-// ---------- STATE: order missing ----------
+// ---------- STATE: order missing (not found OR DB error) ----------
 function MissingState({ failed }: { failed: boolean }) {
   return (
-    <div className="text-center">
+    <>
       <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3 leading-tight">
         Order not found
       </h1>
@@ -221,6 +275,6 @@ function MissingState({ failed }: { failed: boolean }) {
           aimodelmethods@gmail.com
         </a>
       </p>
-    </div>
+    </>
   );
 }
