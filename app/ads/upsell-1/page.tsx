@@ -154,14 +154,15 @@ export default function AdsUpsell1Page() {
             One-time payment · Instant access · Yours forever
           </p>
 
-          {!hasCheckout && (
-            <p
-              className="mt-4 text-center text-[10px] text-gray-700 uppercase tracking-[0.2em]"
-              aria-hidden="true"
+          {/* No thanks → next funnel step (stays inside /ads/*) */}
+          <div className="mt-6 text-center">
+            <a
+              href="/ads/downsell-1"
+              className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
             >
-              ⚙️ Checkout link pending — placeholder mode
-            </p>
-          )}
+              No thanks
+            </a>
+          </div>
         </div>
       </main>
 

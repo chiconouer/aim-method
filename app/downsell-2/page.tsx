@@ -87,12 +87,12 @@ export default function DownsellPage() {
           </div>
         )}
 
-        {/* NO THANKS */}
+        {/* NO THANKS — exits the funnel to the course */}
         <div className="mt-12">
           <a
-            href="https://course.aimodelmethods.com"
+            href="https://course.aimodelmethods.com/dashboard"
             target="_self"
-            className="text-base text-neutral-500 underline hover:text-neutral-300 transition-colors"
+            className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
           >
             No thanks, take me to the course
           </a>

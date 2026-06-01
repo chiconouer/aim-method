@@ -134,10 +134,10 @@ export default function UpsellPage() {
                 <p className="text-center text-[10px] text-gray-600 mt-2">
                   One-time payment · Instant access · Lifetime model
                 </p>
-                <div className="text-center mt-5">
+                <div className="text-center mt-6">
                   <a
                     href={DOWNSELL_HREF}
-                    className="text-[12px] text-gray-500 hover:text-gray-300 transition-colors underline underline-offset-4"
+                    className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
                   >
                     No thanks
                   </a>
