@@ -60,7 +60,7 @@ export default function WeeklyUpsellPage() {
                 paddingLeft: "calc(0.75rem + 0.2em)",
               }}
             >
-              Exclusive Upgrade
+              Upsell 1
             </span>
           </div>
 
