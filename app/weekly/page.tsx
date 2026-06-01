@@ -1,9 +1,12 @@
 // =============================================================
-// Up1 — Weekly Content Subscription ($4.97 / week, recurring)
+// Up1 — 3x More Offer ($47 one-time upsell)
 // -------------------------------------------------------------
-// New funnel page. Visual cloned from /upsell-1 (same dark card,
-// purple gradient CTA, animations) but adapted for a standalone
-// weekly-subscription offer instead of a post-purchase upsell.
+// Public funnel page (route: /weekly). Visual cloned from
+// /upsell-1 — same dark card, purple gradient CTA, animations.
+//
+// Angle: the customer just bought the main product. This upgrade
+// is the leverage layer that 3x's their results without 3x'ing
+// the work. Single $47 charge, not recurring.
 //
 // ⚠️ CHECKOUT NOT WIRED YET. The CHECKOUT_URL constant below is
 // the SINGLE place to swap once Digistore product is created —
@@ -14,17 +17,17 @@
 "use client";
 
 // ───── HERE: paste the Digistore checkout URL when ready ─────
-// Up1 / Weekly Content Subscription — $4.97/week recurring.
+// Up1 / 3x More Offer — $47 one-time upsell.
 // While empty, the button renders identically but won't navigate.
 const CHECKOUT_URL = "";
 // ─────────────────────────────────────────────────────────────
 
 const BULLETS: string[] = [
-  "Fresh strategies dropped every Monday — keep ahead as Instagram + Fanvue change",
-  "New viral reel ideas, prompts, and content angles each week",
-  "Direct from Professor Nouer — what's working RIGHT NOW, not last year",
-  "Members-only library that keeps growing — every drop stays yours",
-  "Cancel anytime in one click — no commitment, no questions",
+  "The hidden multipliers that turn the same effort into 3x the output",
+  "Plug-and-play frameworks built to stack on top of what you just bought",
+  "Skip months of trial and error — go straight to what actually 3x's results",
+  "Compounding leverage: small inputs, outsized returns",
+  "Lifetime access — pay once, yours forever",
 ];
 
 export default function WeeklyUpsellPage() {
@@ -57,19 +60,19 @@ export default function WeeklyUpsellPage() {
                 paddingLeft: "calc(0.75rem + 0.2em)",
               }}
             >
-              Weekly Membership
+              Exclusive Upgrade
             </span>
           </div>
 
           {/* Headline */}
           <h1 className="mt-4 text-center text-2xl sm:text-3xl font-black leading-tight text-white">
-            Keep Evolving — <span className="text-purple-400">New Content</span>{" "}
-            Every Week
+            Get <span className="text-purple-400">3x More Results</span> —
+            Without Doing 3x The Work
           </h1>
           <p className="mt-3 text-center text-[13px] sm:text-sm text-gray-400 leading-relaxed">
-            The game moves fast. Get fresh strategies, viral angles, and
-            what&apos;s working <em>this week</em> — delivered every Monday for
-            less than the cost of a coffee.
+            You just locked in the system. This upgrade gives you the
+            multipliers — the leverage points that turn the same effort into
+            triple the output.
           </p>
 
           {/* Video / VSL placeholder.
@@ -134,13 +137,13 @@ export default function WeeklyUpsellPage() {
               Today
             </p>
             <p className="mt-1 text-3xl sm:text-4xl font-black text-white leading-none">
-              $4.97
+              $47
               <span className="text-base sm:text-lg text-gray-400 font-bold ml-1">
-                / week
+                one-time
               </span>
             </p>
             <p className="mt-2 text-[11px] text-gray-500">
-              Recurring weekly subscription · Cancel anytime
+              One-time payment · Instant lifetime access
             </p>
           </div>
 
@@ -161,10 +164,10 @@ export default function WeeklyUpsellPage() {
               animation: "btnGlow 3s ease-in-out infinite",
             }}
           >
-            JOIN WEEKLY — $4.97/WEEK
+            YES — TRIPLE MY RESULTS — $47
           </a>
           <p className="text-center text-[10px] text-gray-600 mt-2">
-            Charged weekly · No long-term contract · Cancel in one click
+            One-time payment · Instant access · Yours forever
           </p>
 
           {!hasCheckout && (
