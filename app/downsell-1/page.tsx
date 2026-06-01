@@ -46,21 +46,8 @@ export default function WeeklyDownsellPage() {
     <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-12 sm:py-16">
       <div className="max-w-2xl mx-auto text-center">
 
-        {/* FUNNEL STEP LABEL */}
-        <div className="mt-8 flex justify-center">
-          <span
-            className="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-[0.2em] uppercase text-white"
-            style={{
-              background: "linear-gradient(90deg,#7c3aed,#a78bfa)",
-              paddingLeft: "calc(0.75rem + 0.2em)",
-            }}
-          >
-            Downsell 1
-          </span>
-        </div>
-
         {/* HEADLINE */}
-        <h1 className="neon-purple text-4xl sm:text-5xl font-bold leading-tight mt-6">
+        <h1 className="neon-purple text-4xl sm:text-5xl font-bold leading-tight mt-12">
           Hold On — One Last Shot
         </h1>
 

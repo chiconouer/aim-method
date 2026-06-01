@@ -45,19 +45,6 @@ export default function UpsellPage() {
             boxShadow: "0 0 40px rgba(124,58,237,0.12)",
           }}
         >
-          {/* Funnel step label */}
-          <div className="flex justify-center mb-4">
-            <span
-              className="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-[0.2em] uppercase text-white"
-              style={{
-                background: "linear-gradient(90deg,#7c3aed,#a78bfa)",
-                paddingLeft: "calc(0.75rem + 0.2em)",
-              }}
-            >
-              Upsell 2
-            </span>
-          </div>
-
           {/* Headline row */}
           <div className="flex items-center gap-3">
             <svg

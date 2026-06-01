@@ -61,21 +61,8 @@ export default function WeeklyUpsellPage() {
             boxShadow: "0 0 40px rgba(124,58,237,0.12)",
           }}
         >
-          {/* Eyebrow badge */}
-          <div className="flex justify-center">
-            <span
-              className="inline-block px-3 py-1 rounded-full text-[10px] font-black tracking-[0.2em] uppercase text-white"
-              style={{
-                background: "linear-gradient(90deg,#7c3aed,#a78bfa)",
-                paddingLeft: "calc(0.75rem + 0.2em)",
-              }}
-            >
-              Upsell 1
-            </span>
-          </div>
-
           {/* Headline */}
-          <h1 className="mt-4 text-center text-2xl sm:text-3xl font-black leading-tight text-white">
+          <h1 className="text-center text-2xl sm:text-3xl font-black leading-tight text-white">
             Get <span className="text-purple-400">3x More Results</span> —
             Without Doing 3x The Work
           </h1>
