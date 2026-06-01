@@ -40,6 +40,20 @@ const nextConfig = {
         destination: '/downsell-1',
         permanent: true,
       },
+      // 2026-06 funnel rename — /weekly pages moved to their versioned
+      // slots so the funnel reads as Upsell 1/Downsell 1 ($47/$27) and
+      // Upsell 2/Downsell 2 ($197/$97). Old paths kept as 301s so any
+      // links still in Hotmart panels / emails / ads keep working.
+      {
+        source: '/weekly',
+        destination: '/upsell-1',
+        permanent: true,
+      },
+      {
+        source: '/weekly/downsell',
+        destination: '/downsell-1',
+        permanent: true,
+      },
     ];
   },
 };

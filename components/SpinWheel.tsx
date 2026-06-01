@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Shared 6-slice prize wheel used on /downsell-1 and /weekly/downsell.
+ * Shared 6-slice prize wheel used on /downsell-1 ($27) and /downsell-2 ($97).
  * Rigged two-spin sequence:
  *   1) First click → spins to `firstSpinTargetIndex` (typically a "SPIN AGAIN" tease slice)
  *   2) Second click → spins to `secondSpinTargetIndex` (the actual prize), then fires `onComplete`
