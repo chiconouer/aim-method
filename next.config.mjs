@@ -54,6 +54,31 @@ const nextConfig = {
         destination: '/downsell-1',
         permanent: true,
       },
+      // Photos delivery subroutes moved from /upsell-1/* to /upsell-2/*
+      // when the sales-page ownership of /upsell-1 changed (now $47 offer).
+      // These redirects keep already-sent emails resolving correctly.
+      // Each source has a subroute segment so /upsell-1 itself (the $47
+      // sales page) is NOT caught — only nested paths.
+      {
+        source: '/upsell-1/preferences/:order_id',
+        destination: '/upsell-2/preferences/:order_id',
+        permanent: true,
+      },
+      {
+        source: '/upsell-1/my-model',
+        destination: '/upsell-2/my-model',
+        permanent: true,
+      },
+      {
+        source: '/upsell-1/my-model/:order_id',
+        destination: '/upsell-2/my-model/:order_id',
+        permanent: true,
+      },
+      {
+        source: '/upsell-1/thank-you',
+        destination: '/upsell-2/thank-you',
+        permanent: true,
+      },
     ];
   },
 };

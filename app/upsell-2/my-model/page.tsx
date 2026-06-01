@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 // SEO: keep this placeholder out of Google. When we promote it to a real
-// dynamic gallery (/upsell-1/my-model/[order_id]) it will still be noindex.
+// dynamic gallery (/upsell-2/my-model/[order_id]) it will still be noindex.
 export const metadata: Metadata = {
   title: "Your AI Model Dashboard | AIM Method",
   robots: { index: false, follow: false },

@@ -17,11 +17,11 @@
 // drop the live checkout URL into the empty string, no other
 // changes required.
 //
-// Note: the /upsell-1/{preferences,my-model,thank-you} subroutes
-// in this folder belong to the PHOTOS post-purchase delivery
-// flow (Upsell 2 product). Webhooks build URLs under those
-// subroutes, so they intentionally stay here even though the
-// sales page on top now belongs to the 3x offer.
+// (Photos post-purchase delivery subroutes now live under
+// /upsell-2/{preferences,my-model,thank-you} — webhooks generate
+// URLs there. Old /upsell-1/* subroute paths are kept alive via
+// 301 redirects in next.config.mjs so any in-flight emails from
+// before the rename still resolve.)
 // =============================================================
 
 "use client";

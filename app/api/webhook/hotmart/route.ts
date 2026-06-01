@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           );
         }
 
-        const preferencesUrl = `https://aimodelmethods.com/upsell-1/preferences/${row.id}`;
+        const preferencesUrl = `https://aimodelmethods.com/upsell-2/preferences/${row.id}`;
         const upsellFirstName = customerName?.split(" ")[0] || "there";
 
         const { error: emailErr } = await resend.emails.send({
