@@ -1,8 +1,16 @@
 // Digistore24 IPN webhook.
 //
-// Auth: requires `ipn_password` field in the payload matching env
-// DIGISTORE_IPN_PASSWORD (same shared secret configured under each
-// product's IPN settings in Digistore admin).
+// Auth: validates Digistore24's official SHA-512 signature in the
+// `sha_sign` field. Algorithm (per Digistore's reference PHP impl):
+//   1. Drop sha_sign / SHASIGN from the params.
+//   2. Sort remaining keys lexicographically (case-sensitive).
+//   3. Build the string concat "${key}=${value}${passphrase}" for
+//      every non-empty value, in sorted order.
+//   4. SHA-512 hex, uppercase.
+//   5. Constant-time compare against the received sha_sign.
+// The passphrase is read from env DIGISTORE_IPN_PASSWORD (this env
+// var holds the Digistore "SHA passphrase for IPN" string set under
+// Account → Settings → Master data).
 //
 // Success contract: returns plaintext "OK" with status 200 on every
 // handled path (including ignored events / missing optional fields).
@@ -18,6 +26,7 @@
 //   anything else          → fallback to course access (no sales row;
 //                            preserves prior behavior for unknown ids)
 
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
@@ -45,7 +54,6 @@ type DigistoreFields = {
   firstName: string;
   fullName: string;
   event: string | null;
-  ipnPassword: string | null;
   productId: string | null;
   orderId: string | null;
   amountCents: number | null;
@@ -53,6 +61,52 @@ type DigistoreFields = {
   productName: string | null;
   raw: Record<string, unknown>;
 };
+
+// ============================================================
+// SHA signature validation — port of Digistore24's official
+// digistore_signature() PHP function.
+// Reference: https://www.digistore24.com/download/ipn/examples/ipn/sha_sign.php
+// ============================================================
+const SIGNATURE_EXCLUDED_KEYS = new Set(["sha_sign", "SHASIGN"]);
+
+function computeDigistoreSignature(
+  passphrase: string,
+  params: Record<string, unknown>,
+): string {
+  const keys = Object.keys(params)
+    .filter((k) => !SIGNATURE_EXCLUDED_KEYS.has(k))
+    // Lexicographic case-sensitive sort — matches PHP `SORT_STRING`
+    // with `$sort_case_sensitive = true` (Digistore's default).
+    .sort();
+
+  let shaString = "";
+  for (const key of keys) {
+    const raw = params[key];
+    // Skip empties — matches PHP `!isset($v) || $v === "" || $v === false`.
+    if (raw === null || raw === undefined || raw === false) continue;
+    const value = String(raw);
+    if (value === "") continue;
+    shaString += `${key}=${value}${passphrase}`;
+  }
+
+  return createHash("sha512")
+    .update(shaString, "utf8")
+    .digest("hex")
+    .toUpperCase();
+}
+
+function verifyDigistoreSignature(
+  passphrase: string,
+  params: Record<string, unknown>,
+  received: string | null | undefined,
+): boolean {
+  if (!received || typeof received !== "string") return false;
+  const expected = computeDigistoreSignature(passphrase, params);
+  // Length check before timingSafeEqual — buffers must match length
+  // or it throws. Valid signatures are always 128 hex chars (SHA-512).
+  if (expected.length !== received.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(received));
+}
 
 function pickField(
   get: (k: string) => string | null,
@@ -94,20 +148,26 @@ async function parseBody(req: NextRequest): Promise<DigistoreFields> {
   const firstName =
     pickField(
       get,
+      "buyer_first_name",
       "first_name",
       "billing_first_name",
       "address_first_name",
     ) ?? "Student";
   const lastName =
-    pickField(get, "last_name", "billing_last_name", "address_last_name") ?? "";
+    pickField(
+      get,
+      "buyer_last_name",
+      "last_name",
+      "billing_last_name",
+      "address_last_name",
+    ) ?? "";
   const fullName = `${firstName} ${lastName}`.trim() || "Student";
 
   return {
-    email: pickField(get, "email", "billing_email"),
+    email: pickField(get, "buyer_email", "email", "billing_email"),
     firstName,
     fullName,
     event: pickField(get, "event", "event_type"),
-    ipnPassword: pickField(get, "ipn_password"),
     productId: pickField(get, "product_id"),
     orderId: pickField(get, "order_id", "purchase_id", "transaction_id"),
     amountCents: parseAmountToCents(pickField(get, "amount", "amount_brutto")),
@@ -400,21 +460,29 @@ export async function POST(req: NextRequest) {
   // ============================================================
   const fields = await parseBody(req);
 
-  // DEBUG (TEMPORARY — remove once Digistore field names are confirmed):
-  // Real IPN calls are getting 401 because the password field name we
-  // assumed (`ipn_password`) may not match what Digistore actually sends.
-  // Logs ONLY the list of incoming field names + content-type; never
-  // the values, so no secret/PII leaks into Vercel logs.
+  // DEBUG (TEMPORARY): logs ONLY field names + content-type — never
+  // values — so we can see what Digistore actually sends without
+  // leaking secrets/PII into Vercel logs. Kept around until the
+  // event/field-name mapping is confirmed against real IPN traffic.
   console.log(
     `[digistore-webhook][DEBUG] content-type="${req.headers.get("content-type") ?? ""}" body_keys=[${Object.keys(fields.raw).join(", ")}] keys_count=${Object.keys(fields.raw).length}`,
   );
 
   // ============================================================
-  // 3. Auth gate — reject before any side effects
+  // 3. Auth gate — SHA-512 signature validation (Digistore spec)
   // ============================================================
-  if (!fields.ipnPassword || fields.ipnPassword !== expectedPassword) {
+  const receivedSign =
+    (fields.raw["sha_sign"] as string | undefined) ??
+    (fields.raw["SHASIGN"] as string | undefined) ??
+    null;
+  const signatureValid = verifyDigistoreSignature(
+    expectedPassword,
+    fields.raw,
+    receivedSign,
+  );
+  if (!signatureValid) {
     console.warn(
-      `[digistore-webhook] Rejected: invalid or missing ipn_password (productId=${fields.productId}, email=${fields.email})`,
+      `[digistore-webhook] Rejected: sha_sign invalid or missing (productId=${fields.productId}, sig_present=${!!receivedSign}, sig_len=${receivedSign?.length ?? 0})`,
     );
     return new NextResponse("Unauthorized", {
       status: 401,
