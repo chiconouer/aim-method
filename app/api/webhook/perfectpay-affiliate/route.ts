@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifySale } from "@/lib/notifySale";
+import { insertUserWithSource } from "@/lib/insertUserWithSource";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -62,9 +64,10 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!existing) {
-    const { error: insertError } = await supabaseAdmin.from("users").insert({
+    const { error: insertError } = await insertUserWithSource({
       email: normalizedEmail,
       name: firstName,
+      source: "perfectpay",
     });
     if (insertError) {
       console.error("[perfectpay-affiliate] Supabase user insert error:", insertError);
@@ -142,5 +145,16 @@ export async function POST(req: NextRequest) {
   }
 
   console.log(`[perfectpay-affiliate] Welcome email sent to ${normalizedEmail}`);
+
+  // Realtime Discord alert — PerfectPay was deprecated, so every hit
+  // should be inspected. Surface it loudly with the unexpected-channel
+  // treatment.
+  await notifySale({
+    channel: "perfectpay",
+    email: normalizedEmail,
+    name: fullName,
+    product: "AIM Method (course)",
+  });
+
   return NextResponse.json({ ok: true });
 }

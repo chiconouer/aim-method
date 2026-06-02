@@ -14,6 +14,8 @@ import Stripe from "stripe";
 import { Resend } from "resend";
 import stripe from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifySale } from "@/lib/notifySale";
+import { insertUserWithSource } from "@/lib/insertUserWithSource";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -178,15 +180,24 @@ async function provisionAccess({
   email,
   fullName,
   productName,
+  sessionId,
+  amountCents,
+  currency,
 }: {
   email: string;
   fullName: string;
   productName: string;
+  /** Stripe checkout session id — used as the sales row idempotency key. */
+  sessionId: string;
+  /** Amount paid in cents. Pass `null` if unknown. */
+  amountCents: number | null;
+  /** ISO currency code (e.g. "usd"). Defaults to USD. */
+  currency: string | null;
 }) {
   const normalizedEmail = email.toLowerCase().trim();
   const firstName = fullName.split(" ")[0] || "Student";
 
-  // 1. Upsert user
+  // 1. Upsert user (with source = stripe; defensive fallback if column missing)
   const { data: existing } = await supabaseAdmin
     .from("users")
     .select("email")
@@ -194,9 +205,10 @@ async function provisionAccess({
     .single();
 
   if (!existing) {
-    const { error: insertError } = await supabaseAdmin.from("users").insert({
+    const { error: insertError } = await insertUserWithSource({
       email: normalizedEmail,
       name: firstName,
+      source: "stripe",
     });
     if (insertError) {
       console.error("[stripe webhook] user insert error:", insertError);
@@ -221,7 +233,38 @@ async function provisionAccess({
     // continue — try email anyway
   }
 
-  // 3. Welcome email
+  // 3. Record the sale (parity with the Hotmart webhook). Reuses the
+  // `hotmart_transaction_id` UNIQUE column for idempotency — prefix
+  // distinguishes Stripe-originated rows without needing a schema change.
+  const upperCurrency = (currency ?? "USD").toUpperCase();
+  const salePayload = {
+    hotmart_transaction_id: `stripe:${sessionId}`,
+    buyer_name: fullName || null,
+    buyer_email: normalizedEmail,
+    amount_cents: amountCents ?? 0,
+    currency: upperCurrency,
+    product_name: productName,
+    status: "approved",
+    occurred_at: new Date().toISOString(),
+    raw_payload: { source: "stripe", session_id: sessionId, productName },
+  };
+  const { error: salesInsertError } = await supabaseAdmin
+    .from("sales")
+    .upsert(salePayload, {
+      onConflict: "hotmart_transaction_id",
+      ignoreDuplicates: true,
+    });
+  if (salesInsertError) {
+    console.error(
+      `[stripe webhook] sales insert FAILED — code=${(salesInsertError as { code?: string }).code ?? "?"} message="${salesInsertError.message}" sessionId=${sessionId} email=${normalizedEmail}`,
+    );
+  } else {
+    console.log(
+      `[stripe webhook] sales row recorded sessionId=${sessionId} email=${normalizedEmail} amount=${amountCents ?? 0}`,
+    );
+  }
+
+  // 4. Welcome email
   const loginUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;
   const { error: emailError } = await resend.emails.send({
     from: "AIM Method <noreply@aimodelmethods.com>",
@@ -235,6 +278,16 @@ async function provisionAccess({
   }
 
   console.log(`[stripe webhook] welcome email sent to ${normalizedEmail} (${productName})`);
+
+  // 5. Realtime Discord notification (best-effort)
+  await notifySale({
+    channel: "stripe",
+    email: normalizedEmail,
+    name: fullName,
+    amountCents,
+    currency: upperCurrency,
+    product: productName,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -272,6 +325,9 @@ export async function POST(req: NextRequest) {
           email,
           fullName,
           productName: "AIM Method",
+          sessionId: session.id,
+          amountCents: typeof session.amount_total === "number" ? session.amount_total : null,
+          currency: session.currency ?? null,
         });
       }
     } else if (event.type === "payment_intent.succeeded") {
