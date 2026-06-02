@@ -1,25 +1,36 @@
 // =============================================================
 // Ads variant — Upsell 1 (3x More Offer, $47 one-time)
 // -------------------------------------------------------------
-// Duplicate of /upsell-1 for the PAID-TRAFFIC funnel (Digistore
-// checkout). Pixel-for-pixel identical to the organic version;
-// only the CHECKOUT_URL constant below will point at Digistore
-// once the gestor de tráfego sets up the product.
+// Duplicate of /upsell-1 for the PAID-TRAFFIC funnel.
+// Wired to the Digistore 1-click upsell flow:
+//   YES → https://www.checkout-ds24.com/answer/yes?template=light
+//   NO  → https://www.checkout-ds24.com/answer/no
+// Digistore handles the same-payment-method charge and redirects
+// to the next funnel step configured in its admin (downsell-1).
 //
 // The original /upsell-1 stays wired to the organic / Hotmart
 // funnel and is NOT touched by this duplicate.
-//
-// ⚠️ CHECKOUT NOT WIRED YET. Paste the Digistore live URL into
-// the empty string on line 27 — no other change required.
 // =============================================================
 
 "use client";
 
-// ───── HERE: paste the Digistore checkout URL when ready ─────
-// Ads / Upsell 1 / 3x More Offer — $47 one-time.
-// While empty, the button renders identically but won't navigate.
-const CHECKOUT_URL = "";
-// ─────────────────────────────────────────────────────────────
+import { useEffect } from "react";
+import Script from "next/script";
+
+const DIGISTORE_YES_URL =
+  "https://www.checkout-ds24.com/answer/yes?template=light";
+const DIGISTORE_NO_URL = "https://www.checkout-ds24.com/answer/no";
+
+// Calls the global digistoreUpsell() installed by digistore.js.
+// Safe to call before the script loads (no-op if missing) AND safe
+// to call multiple times — digistoreUpsell() just re-reads the URL
+// params Digistore stores after the original purchase.
+function callDigistoreUpsell() {
+  if (typeof window === "undefined") return;
+  const fn = (window as unknown as { digistoreUpsell?: () => void })
+    .digistoreUpsell;
+  if (typeof fn === "function") fn();
+}
 
 const BULLETS: string[] = [
   "The hidden multipliers that turn the same effort into 3x the output",
@@ -30,10 +41,22 @@ const BULLETS: string[] = [
 ];
 
 export default function AdsUpsell1Page() {
-  const hasCheckout = CHECKOUT_URL.length > 0;
+  // Cover the cached-script case: if digistore.js was already loaded
+  // on a previous mount/navigation, onLoad on <Script> won't fire
+  // again — running this on mount guarantees digistoreUpsell() is
+  // called in both first-load and cached scenarios.
+  useEffect(() => {
+    callDigistoreUpsell();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
+      <Script
+        src="https://www.digistore24-scripts.com/service/digistore.js"
+        strategy="afterInteractive"
+        onLoad={callDigistoreUpsell}
+      />
+
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
         <span className="text-lg font-black tracking-tight">
@@ -133,13 +156,7 @@ export default function AdsUpsell1Page() {
 
           {/* CTA */}
           <a
-            href={hasCheckout ? CHECKOUT_URL : "#"}
-            target={hasCheckout ? "_blank" : undefined}
-            rel={hasCheckout ? "noopener noreferrer" : undefined}
-            onClick={(e) => {
-              if (!hasCheckout) e.preventDefault();
-            }}
-            aria-disabled={!hasCheckout}
+            href={DIGISTORE_YES_URL}
             className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden mt-5"
             style={{
               background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
@@ -154,10 +171,10 @@ export default function AdsUpsell1Page() {
             One-time payment · Instant access · Yours forever
           </p>
 
-          {/* No thanks → next funnel step (stays inside /ads/*) */}
+          {/* No thanks → Digistore decline (Digistore admin routes to /ads/downsell-1) */}
           <div className="mt-6 text-center">
             <a
-              href="/ads/downsell-1"
+              href={DIGISTORE_NO_URL}
               className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
             >
               No thanks
