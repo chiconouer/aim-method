@@ -23,6 +23,13 @@ export type AccessChannel =
 
 export interface NotifySaleInput {
   channel: AccessChannel;
+  /**
+   * Whether this notification represents a new sale ("sale", the default)
+   * or a refund/chargeback ("refund"). Refund renders with a distinct
+   * header (↩️ REFUND / CHARGEBACK ↩️) regardless of channel, so refund
+   * events are never confused with new sales in the Discord feed.
+   */
+  eventKind?: "sale" | "refund";
   email: string;
   name?: string | null;
   /** Amount in cents (e.g. 2900 = $29.00). Omit for channels we don't see the price for. */
@@ -70,19 +77,24 @@ function channelLabel(channel: AccessChannel): string {
 }
 
 function buildMessage(input: NotifySaleInput): string {
-  const { channel, email, name, amountCents, currency, product, extraNote } = input;
+  const { channel, eventKind, email, name, amountCents, currency, product, extraNote } = input;
   const displayName = (name ?? "").trim() || "Unknown name";
   const amount = formatAmount(amountCents, currency);
   const stamp = formatEtTimestamp(new Date());
+  const isRefund = eventKind === "refund";
 
   const lines: string[] = [];
 
-  if (EXPECTED_CHANNELS.includes(channel)) {
+  if (isRefund) {
+    // Refund header trumps the channel-based variant — a refund is never
+    // a "new sale" regardless of which gateway sent it.
+    lines.push("↩️ **REFUND / CHARGEBACK** ↩️");
+  } else if (EXPECTED_CHANNELS.includes(channel)) {
     lines.push("💰 **NEW SALE** 💰");
   } else if (channel === "manual") {
     lines.push("🔧 **MANUAL ACCESS GRANTED** 🔧");
   } else {
-    // digistore, perfectpay — unexpected channels at present
+    // perfectpay — unexpected channel at present
     lines.push("🚨 **UNEXPECTED CHANNEL — VERIFY** 🚨");
   }
 
@@ -94,7 +106,7 @@ function buildMessage(input: NotifySaleInput): string {
   if (product) lines.push(`📦 ${product}`);
   lines.push(`⏰ ${stamp}`);
 
-  if (!EXPECTED_CHANNELS.includes(channel) && channel !== "manual") {
+  if (!isRefund && !EXPECTED_CHANNELS.includes(channel) && channel !== "manual") {
     lines.push("");
     lines.push(
       `⚠️ This channel should NOT be actively provisioning access right now. If you did not authorize this sale, investigate immediately (token leak, cloned funnel, etc).`,
