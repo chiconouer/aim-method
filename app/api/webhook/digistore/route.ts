@@ -35,7 +35,12 @@ import { insertUserWithSource } from "@/lib/insertUserWithSource";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
-const ACCEPTED_EVENTS = ["CHECKOUT_COMPLETED", "ORDER_COMPLETED"];
+// Digistore IPN event names (per Digistore24 dev docs Events page).
+// Only on_payment triggers delivery; refund/chargeback are handled
+// separately. All other events (subscription / rebill / affiliate
+// signup / etc.) are silently 200-OK'd.
+const PAYMENT_EVENTS = ["on_payment"];
+const REFUNDED_EVENTS = ["on_refund", "on_chargeback"];
 
 const PRODUCT_COURSE = "688387";
 const PRODUCT_VIDEO_UPSELL = "688382";
@@ -442,6 +447,63 @@ async function insertDigistoreSale({
   }
 }
 
+// Refund / chargeback dispatch.
+// For photo products, mark the upsell_orders row "refunded" (mirrors
+// the Hotmart refund pattern). For the course and the video TODO
+// products, refund is informational only — no automatic access
+// revocation (matches Hotmart behavior for the $29 course flow);
+// owner handles manually via Discord notification.
+async function handleDigistoreRefund({
+  event,
+  fields,
+}: {
+  event: string;
+  fields: DigistoreFields;
+}) {
+  const productId = fields.productId ?? "";
+  const orderId = fields.orderId;
+  const email = fields.email?.toLowerCase().trim() ?? "";
+
+  const isPhoto =
+    productId === PRODUCT_PHOTO_UPSELL ||
+    productId === PRODUCT_PHOTO_DOWNSELL;
+
+  if (isPhoto && orderId) {
+    const { error } = await supabaseAdmin
+      .from("upsell_orders")
+      .update({ status: "refunded" })
+      .eq("hotmart_transaction_id", `digistore:${orderId}`);
+    if (error) {
+      console.error(
+        `[digistore-webhook] refund update error orderId=${orderId} err=${error.message}`,
+      );
+    } else {
+      console.log(
+        `[digistore-webhook] photo order refunded orderId=${orderId} event=${event}`,
+      );
+    }
+  } else if (isPhoto && !orderId) {
+    console.warn(
+      `[digistore-webhook] photo refund missing order_id — cannot match row. event=${event} email=${email}`,
+    );
+  } else {
+    console.log(
+      `[digistore-webhook] refund logged (no DB rollback) productId=${productId} orderId=${orderId} event=${event}`,
+    );
+  }
+
+  await notifySale({
+    channel: "digistore",
+    eventKind: "refund",
+    email,
+    name: fields.fullName,
+    amountCents: fields.amountCents,
+    currency: fields.currency,
+    product: fields.productName ?? `product_id=${productId}`,
+    extraNote: `Event: ${event} · order_id=${orderId ?? "?"}`,
+  });
+}
+
 export async function POST(req: NextRequest) {
   // ============================================================
   // 1. Server config check
@@ -459,14 +521,6 @@ export async function POST(req: NextRequest) {
   // 2. Parse body (form-urlencoded or JSON)
   // ============================================================
   const fields = await parseBody(req);
-
-  // DEBUG (TEMPORARY): logs ONLY field names + content-type — never
-  // values — so we can see what Digistore actually sends without
-  // leaking secrets/PII into Vercel logs. Kept around until the
-  // event/field-name mapping is confirmed against real IPN traffic.
-  console.log(
-    `[digistore-webhook][DEBUG] content-type="${req.headers.get("content-type") ?? ""}" body_keys=[${Object.keys(fields.raw).join(", ")}] keys_count=${Object.keys(fields.raw).length}`,
-  );
 
   // ============================================================
   // 3. Auth gate — SHA-512 signature validation (Digistore spec)
@@ -491,10 +545,20 @@ export async function POST(req: NextRequest) {
   }
 
   // ============================================================
-  // 4. Event filter (preserve existing accepted-events behavior)
+  // 4. Event dispatch
+  //    - on_refund / on_chargeback → handleDigistoreRefund
+  //    - on_payment                → delivery path below
+  //    - everything else           → silently ignored (200 OK)
   // ============================================================
-  if (fields.event && !ACCEPTED_EVENTS.includes(fields.event)) {
-    console.log(`[digistore-webhook] Event ignored: ${fields.event}`);
+  const event = fields.event ?? "";
+
+  if (REFUNDED_EVENTS.includes(event)) {
+    await handleDigistoreRefund({ event, fields });
+    return OK_RESPONSE();
+  }
+
+  if (!PAYMENT_EVENTS.includes(event)) {
+    console.log(`[digistore-webhook] Event ignored: ${event || "(missing)"}`);
     return OK_RESPONSE();
   }
 
@@ -509,7 +573,7 @@ export async function POST(req: NextRequest) {
   const productId = fields.productId ?? "";
 
   console.log(
-    `[digistore-webhook] received product_id=${productId} order_id=${fields.orderId} email=${email} event=${fields.event}`,
+    `[digistore-webhook] received product_id=${productId} order_id=${fields.orderId} email=${email} event=${event}`,
   );
 
   // ============================================================
