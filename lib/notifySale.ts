@@ -8,9 +8,9 @@
  *
  * The visual treatment differs per channel so the dono spots unexpected
  * provisioning sources at a glance:
- *   - hotmart, stripe → ✅ normal "new sale"
- *   - digistore, perfectpay → 🚨 ALERT (these aren't supposed to be active
- *     right now; their presence in the feed indicates suspicious provisioning)
+ *   - hotmart, stripe, digistore → ✅ normal "new sale" (active paid channels)
+ *   - perfectpay → 🚨 ALERT (deprecated; presence in the feed indicates
+ *     suspicious provisioning — token leak, cloned funnel, etc.)
  *   - manual → 🔧 informational (manual script ran)
  */
 
@@ -33,7 +33,7 @@ export interface NotifySaleInput {
   extraNote?: string | null;
 }
 
-const EXPECTED_CHANNELS: AccessChannel[] = ["hotmart", "stripe"];
+const EXPECTED_CHANNELS: AccessChannel[] = ["hotmart", "stripe", "digistore"];
 
 function formatEtTimestamp(date: Date): string {
   const time = new Intl.DateTimeFormat("en-US", {
