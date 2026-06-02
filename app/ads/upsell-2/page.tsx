@@ -1,47 +1,59 @@
 // =============================================================
 // Ads variant — Upsell 2 (AI Model 11 photos, $197 one-time)
 // -------------------------------------------------------------
-// Duplicate of /upsell-2 for the PAID-TRAFFIC funnel (Digistore
-// checkout). Pixel-for-pixel identical to the organic version
-// (VSL facade, 120s reveal, downsell linkout).
+// Duplicate of /upsell-2 for the PAID-TRAFFIC funnel.
+// Wired to the Digistore 1-click upsell flow:
+//   YES → https://www.checkout-ds24.com/answer/yes?template=light
+//   NO  → https://www.checkout-ds24.com/answer/no
+// Digistore handles the same-payment-method charge and redirects
+// to the next funnel step configured in its admin (downsell-2).
 //
-// Two differences from the organic /upsell-2:
-//   1. CHECKOUT_URL is a Digistore placeholder (empty until the
-//      gestor de tráfego sets it up).
-//   2. DOWNSELL_HREF points at /ads/downsell-2 so the paid funnel
-//      stays isolated from the organic /downsell-2.
+// Identical VSL behavior to the organic /upsell-2: 120s reveal of
+// the upgrade CTAs, muted YouTube autoplay with TAP TO UNMUTE
+// overlay.
 //
 // The original /upsell-2 stays wired to the organic / Hotmart
 // funnel and is NOT touched by this duplicate.
-//
-// ⚠️ CHECKOUT NOT WIRED YET. Paste the Digistore live URL into
-// the empty string on line 25 — no other change required.
 // =============================================================
 
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Script from "next/script";
 
-// ───── HERE: paste the Digistore checkout URL when ready ─────
-// Ads / Upsell 2 / AI Model photos — $197 one-time.
-// While empty, the button renders identically but won't navigate.
-const CHECKOUT_URL = "";
-// ─────────────────────────────────────────────────────────────
+const DIGISTORE_YES_URL =
+  "https://www.checkout-ds24.com/answer/yes?template=light";
+const DIGISTORE_NO_URL = "https://www.checkout-ds24.com/answer/no";
 
-// Internal nav inside the /ads funnel — keep it isolated from /downsell-2 (organic).
-const DOWNSELL_HREF = "/ads/downsell-2";
+// Calls the global digistoreUpsell() installed by digistore.js.
+// Safe to call before the script loads (no-op if missing) AND safe
+// to call multiple times — digistoreUpsell() just re-reads the URL
+// params Digistore stores after the original purchase.
+function callDigistoreUpsell() {
+  if (typeof window === "undefined") return;
+  const fn = (window as unknown as { digistoreUpsell?: () => void })
+    .digistoreUpsell;
+  if (typeof fn === "function") fn();
+}
 
 export default function AdsUpsell2Page() {
   // VSL facade state
   const [showSoundOverlay, setShowSoundOverlay] = useState(true);
   const [showCTAs, setShowCTAs] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const hasCheckout = CHECKOUT_URL.length > 0;
 
   // Reveal upgrade CTAs 120 seconds after mount
   useEffect(() => {
     const t = setTimeout(() => setShowCTAs(true), 120_000);
     return () => clearTimeout(t);
+  }, []);
+
+  // Cover the cached-script case: if digistore.js was already loaded
+  // on a previous mount/navigation, onLoad on <Script> won't fire
+  // again — running this on mount guarantees digistoreUpsell() is
+  // called in both first-load and cached scenarios.
+  useEffect(() => {
+    callDigistoreUpsell();
   }, []);
 
   // YouTube JS API postMessage to unmute the muted-autoplay video
@@ -55,6 +67,12 @@ export default function AdsUpsell2Page() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
+      <Script
+        src="https://www.digistore24-scripts.com/service/digistore.js"
+        strategy="afterInteractive"
+        onLoad={callDigistoreUpsell}
+      />
+
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
         <span className="text-lg font-black tracking-tight">
@@ -141,13 +159,7 @@ export default function AdsUpsell2Page() {
             {showCTAs && (
               <>
                 <a
-                  href={hasCheckout ? CHECKOUT_URL : "#"}
-                  target={hasCheckout ? "_blank" : undefined}
-                  rel={hasCheckout ? "noopener noreferrer" : undefined}
-                  onClick={(e) => {
-                    if (!hasCheckout) e.preventDefault();
-                  }}
-                  aria-disabled={!hasCheckout}
+                  href={DIGISTORE_YES_URL}
                   className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
@@ -163,7 +175,7 @@ export default function AdsUpsell2Page() {
                 </p>
                 <div className="text-center mt-6">
                   <a
-                    href={DOWNSELL_HREF}
+                    href={DIGISTORE_NO_URL}
                     className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
                   >
                     No thanks
