@@ -1,26 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
-import { postToDiscordWebhook } from "@/lib/discord";
+import { notifySale } from "@/lib/notifySale";
+import { insertUserWithSource } from "@/lib/insertUserWithSource";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
-
-function formatEtTimestamp(isoString: string) {
-  const date = new Date(isoString);
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(date);
-  const datePart = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(date);
-  return `${time} EST · ${datePart}`;
-}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -260,9 +244,10 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!existing) {
-    const { error: insertError } = await supabaseAdmin.from("users").insert({
+    const { error: insertError } = await insertUserWithSource({
       email: normalizedEmail,
       name: firstName,
+      source: "hotmart",
     });
 
     if (insertError) {
@@ -342,55 +327,67 @@ export async function POST(req: NextRequest) {
     body?.data?.purchase?.id ??
     body?.data?.transaction;
 
-  if (!transactionId) {
-    console.error("Hotmart sales insert skipped: missing transaction id.");
-  } else {
-    const rawAmount = Number(body?.data?.purchase?.price?.value ?? 0);
-    const amountCents = Math.round(rawAmount * 100);
-    const occurredAt = body?.data?.purchase?.approved_date ?? new Date().toISOString();
+  const rawAmount = Number(body?.data?.purchase?.price?.value ?? 0);
+  const amountCents = Math.round(rawAmount * 100);
+  const occurredAt =
+    body?.data?.purchase?.approved_date ?? new Date().toISOString();
+  const currency = body?.data?.purchase?.price?.currency_code ?? "USD";
+  const productName = body?.data?.product?.name ?? null;
+  const buyerName = body?.data?.buyer?.name ?? null;
 
-    const { error: salesInsertError } = await supabaseAdmin.from("sales").upsert(
-      {
-        hotmart_transaction_id: String(transactionId),
-        buyer_name: body?.data?.buyer?.name ?? null,
-        buyer_email: normalizedEmail,
-        amount_cents: amountCents,
-        currency: body?.data?.purchase?.price?.currency_code ?? "USD",
-        product_name: body?.data?.product?.name ?? null,
-        status: "approved",
-        occurred_at: occurredAt,
-        raw_payload: body,
-      },
-      { onConflict: "hotmart_transaction_id", ignoreDuplicates: true }
+  if (!transactionId) {
+    // Hotmart test postbacks frequently omit transaction IDs; we can't
+    // create a sales row (UNIQUE NOT NULL constraint), but the user IS
+    // provisioned above. Log loudly so this isn't invisible.
+    console.error(
+      `[hotmart-webhook] sales insert SKIPPED — no transaction id in payload. event=${body?.event} email=${normalizedEmail} amount=${amountCents}`,
     );
+  } else {
+    const { error: salesInsertError } = await supabaseAdmin
+      .from("sales")
+      .upsert(
+        {
+          hotmart_transaction_id: String(transactionId),
+          buyer_name: buyerName,
+          buyer_email: normalizedEmail,
+          amount_cents: amountCents,
+          currency,
+          product_name: productName,
+          status: "approved",
+          occurred_at: occurredAt,
+          raw_payload: body,
+        },
+        { onConflict: "hotmart_transaction_id", ignoreDuplicates: true },
+      );
 
     if (salesInsertError) {
-      // Keep webhook response successful to avoid retries breaking existing purchase flow.
-      console.error("Failed to persist sale record:", salesInsertError);
+      // Best-effort: keep the webhook response successful to avoid retry
+      // storms, but log enough detail to debug from Vercel logs.
+      console.error(
+        `[hotmart-webhook] sales insert FAILED — code=${(salesInsertError as { code?: string }).code ?? "?"} message="${salesInsertError.message}" txId=${transactionId} email=${normalizedEmail}`,
+      );
+    } else {
+      console.log(
+        `[hotmart-webhook] sales row recorded txId=${transactionId} email=${normalizedEmail} amount=${amountCents}`,
+      );
     }
+  }
 
-    if (body.event === "PURCHASE_APPROVED") {
-      const salesRealtimeWebhook = process.env.DISCORD_WEBHOOK_SALES_REALTIME;
-      if (salesRealtimeWebhook) {
-        const amount = (amountCents / 100).toFixed(2);
-        const displayTime = formatEtTimestamp(occurredAt);
-        const content = [
-          "💰 **NEW SALE** 💰",
-          "━━━━━━━━━━━━━━━━━━",
-          `👤 **${body?.data?.buyer?.name ?? "Unknown Buyer"}**`,
-          `📧 ${normalizedEmail}`,
-          `💵 **$${amount}** ${body?.data?.purchase?.price?.currency_code ?? "USD"}`,
-          `📦 ${body?.data?.product?.name ?? "Unknown Product"}`,
-          `⏰ ${displayTime}`,
-        ].join("\n");
-
-        try {
-          await postToDiscordWebhook(salesRealtimeWebhook, content);
-        } catch (discordError) {
-          console.error("Failed to post realtime sales Discord message:", discordError);
-        }
-      }
-    }
+  // Realtime Discord notification — fires for every approved purchase
+  // regardless of whether the sales insert succeeded or was skipped.
+  // Wrapped in best-effort by notifySale() itself.
+  if (body.event === "PURCHASE_APPROVED") {
+    await notifySale({
+      channel: "hotmart",
+      email: normalizedEmail,
+      name: buyerName,
+      amountCents,
+      currency,
+      product: productName,
+      extraNote: transactionId
+        ? null
+        : "⚠️ Test postback — no transaction id, sales row was skipped.",
+    });
   }
 
   return NextResponse.json({ ok: true });
