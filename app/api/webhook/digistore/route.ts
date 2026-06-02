@@ -400,6 +400,15 @@ export async function POST(req: NextRequest) {
   // ============================================================
   const fields = await parseBody(req);
 
+  // DEBUG (TEMPORARY — remove once Digistore field names are confirmed):
+  // Real IPN calls are getting 401 because the password field name we
+  // assumed (`ipn_password`) may not match what Digistore actually sends.
+  // Logs ONLY the list of incoming field names + content-type; never
+  // the values, so no secret/PII leaks into Vercel logs.
+  console.log(
+    `[digistore-webhook][DEBUG] content-type="${req.headers.get("content-type") ?? ""}" body_keys=[${Object.keys(fields.raw).join(", ")}] keys_count=${Object.keys(fields.raw).length}`,
+  );
+
   // ============================================================
   // 3. Auth gate — reject before any side effects
   // ============================================================
