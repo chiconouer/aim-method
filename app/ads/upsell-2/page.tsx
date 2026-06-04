@@ -8,9 +8,9 @@
 // Digistore handles the same-payment-method charge and redirects
 // to the next funnel step configured in its admin (downsell-2).
 //
-// Identical VSL behavior to the organic /upsell-2: 120s reveal of
-// the upgrade CTAs, muted YouTube autoplay with TAP TO UNMUTE
-// overlay.
+// Video player: Vturb smartplayer (web component loaded via
+// scripts.converteai.net). 120s reveal timer on the upgrade CTAs
+// is independent of the player — it's a pure React setTimeout.
 //
 // The original /upsell-2 stays wired to the organic / Hotmart
 // funnel and is NOT touched by this duplicate.
@@ -18,8 +18,14 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Script from "next/script";
+
+// <vturb-smartplayer> JSX type is declared globally in app/sales/page.tsx
+// (module augmentation merges across files), so no local declaration here.
+
+const VTURB_PLAYER_SRC =
+  "https://scripts.converteai.net/ee166677-475b-4486-89b7-8d5715864e85/players/6a20bf63c681d550d423791a/v4/player.js";
 
 const DIGISTORE_YES_URL =
   "https://www.checkout-ds24.com/answer/yes?template=light";
@@ -37,10 +43,8 @@ function callDigistoreUpsell() {
 }
 
 export default function AdsUpsell2Page() {
-  // VSL facade state
-  const [showSoundOverlay, setShowSoundOverlay] = useState(true);
+  // 120s delayed-CTA timer state — independent of the video player
   const [showCTAs, setShowCTAs] = useState(false);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Reveal upgrade CTAs 120 seconds after mount
   useEffect(() => {
@@ -56,15 +60,6 @@ export default function AdsUpsell2Page() {
     callDigistoreUpsell();
   }, []);
 
-  // YouTube JS API postMessage to unmute the muted-autoplay video
-  function handleUnmute() {
-    iframeRef.current?.contentWindow?.postMessage(
-      '{"event":"command","func":"unMute","args":""}',
-      "*",
-    );
-    setShowSoundOverlay(false);
-  }
-
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
       <Script
@@ -72,6 +67,7 @@ export default function AdsUpsell2Page() {
         strategy="afterInteractive"
         onLoad={callDigistoreUpsell}
       />
+      <Script src={VTURB_PLAYER_SRC} strategy="afterInteractive" />
 
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
@@ -120,39 +116,14 @@ export default function AdsUpsell2Page() {
             While you wait, watch the first lesson of the course 👇
           </p>
 
-          {/* Video + sound overlay */}
+          {/* Vturb smartplayer — late-binding web component upgraded
+              by the player script loaded above. aspect-video wrapper
+              reserves space to avoid layout shift while loading. */}
           <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black mt-5 border border-white/5">
-            <iframe
-              ref={iframeRef}
-              src="https://www.youtube.com/embed/RyOUKVc7mbk?autoplay=1&mute=1&controls=0&modestbranding=1&rel=0&showinfo=0&playsinline=1&enablejsapi=1"
-              title="Lesson"
-              className="absolute inset-0 w-full h-full"
-              allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
+            <vturb-smartplayer
+              id="vid-6a20bf63c681d550d423791a"
+              style={{ display: "block", margin: "0 auto", width: "100%" }}
             />
-
-            {showSoundOverlay && (
-              <button
-                type="button"
-                onClick={handleUnmute}
-                aria-label="Tap to unmute the video"
-                className="absolute inset-0 flex items-center justify-center bg-black/45 cursor-pointer focus:outline-none focus-visible:bg-black/55 transition-colors"
-              >
-                <span
-                  className="flex items-center gap-2 px-6 py-4 sm:px-8 sm:py-5 rounded-2xl text-white text-base sm:text-lg font-black tracking-wide"
-                  style={{
-                    background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-                    boxShadow:
-                      "0 0 30px rgba(124,58,237,0.6), inset 0 1px 0 rgba(255,255,255,0.15)",
-                    minHeight: "48px",
-                    animation: "soundPulse 1.6s ease-in-out infinite",
-                  }}
-                >
-                  <span className="text-2xl" aria-hidden="true">🔊</span>
-                  TAP TO UNMUTE
-                </span>
-              </button>
-            )}
           </div>
 
           {/* Upgrade CTAs — hidden until 120s elapses */}
@@ -197,10 +168,6 @@ export default function AdsUpsell2Page() {
         @keyframes btnGlow {
           0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
           50%{box-shadow:0 8px 48px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
-        }
-        @keyframes soundPulse {
-          0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(124,58,237,0.6),inset 0 1px 0 rgba(255,255,255,0.15)}
-          50%{transform:scale(1.04);box-shadow:0 0 50px rgba(124,58,237,0.95),inset 0 1px 0 rgba(255,255,255,0.15)}
         }
       `}</style>
     </div>
