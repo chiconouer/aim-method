@@ -20,6 +20,7 @@
 
 import { useState } from "react";
 import { SpinWheel, type SpinWheelSlice } from "@/components/SpinWheel";
+import { TikTokPixel } from "@/components/TikTokPixel";
 
 // ───── HERE: paste the Digistore checkout URL when ready ─────
 // Ads / Downsell 2 / AI Model photos — $97 one-time after roulette discount.
@@ -43,6 +44,7 @@ export default function AdsDownsell2Page() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-12 sm:py-16">
+      <TikTokPixel />
       <div className="max-w-2xl mx-auto text-center">
 
         {/* HEADLINE */}
