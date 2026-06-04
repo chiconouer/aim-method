@@ -89,6 +89,12 @@ export default function AdsUpsell2Page() {
             boxShadow: "0 0 40px rgba(124,58,237,0.12)",
           }}
         >
+          {/* Start Here — top headline framing this page as Lesson 1 */}
+          <h1 className="text-center text-3xl sm:text-4xl font-black leading-tight text-white mb-6">
+            Start Here —{" "}
+            <span className="text-purple-400">Lesson 1 of the Course</span>
+          </h1>
+
           {/* Headline row */}
           <div className="flex items-center gap-3">
             <svg
