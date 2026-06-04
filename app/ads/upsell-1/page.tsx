@@ -16,6 +16,7 @@
 
 import { useEffect } from "react";
 import Script from "next/script";
+import { TikTokPixel } from "@/components/TikTokPixel";
 
 const DIGISTORE_YES_URL =
   "https://www.checkout-ds24.com/answer/yes?template=light";
@@ -51,6 +52,7 @@ export default function AdsUpsell1Page() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
+      <TikTokPixel />
       <Script
         src="https://www.digistore24-scripts.com/service/digistore.js"
         strategy="afterInteractive"

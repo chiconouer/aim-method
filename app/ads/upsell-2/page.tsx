@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from "react";
 import Script from "next/script";
+import { TikTokPixel } from "@/components/TikTokPixel";
 
 // <vturb-smartplayer> JSX type is declared globally in app/sales/page.tsx
 // (module augmentation merges across files), so no local declaration here.
@@ -62,6 +63,7 @@ export default function AdsUpsell2Page() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
+      <TikTokPixel />
       <Script
         src="https://www.digistore24-scripts.com/service/digistore.js"
         strategy="afterInteractive"

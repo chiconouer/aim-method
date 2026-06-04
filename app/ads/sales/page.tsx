@@ -14,6 +14,7 @@
 
 "use client";
 import { useEffect, useRef } from "react";
+import { TikTokPixel } from "@/components/TikTokPixel";
 
 // JSX type for Vturb's custom element (web component, no public type pkg).
 // Replaces a previous `@ts-expect-error` comment that TS misreported as
@@ -125,6 +126,7 @@ export default function AdsSalesPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
+      <TikTokPixel />
 
       {/* BANNER */}
       <div
