@@ -1,6 +1,21 @@
 "use client";
 import { useEffect, useRef } from "react";
 
+// JSX type for Vturb's custom element (web component, no public type pkg).
+// Replaces a previous `@ts-expect-error` comment that TS misreported as
+// unused — proper type declaration is the actual fix.
+declare module "react" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements {
+      "vturb-smartplayer": React.DetailedHTMLProps<
+        React.HTMLAttributes<HTMLElement>,
+        HTMLElement
+      > & { id?: string };
+    }
+  }
+}
+
 const REVEAL_TIME = 510;
 const STORAGE_KEY = "aim_sales_visited";
 
@@ -129,7 +144,6 @@ export default function SalesPage() {
 
       {/* VIDEO */}
       <div className="mx-4 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
-        {/* @ts-expect-error custom vturb element */}
         <vturb-smartplayer
           id="vid-69e6749288365845bdfcd75c"
           style={{ display: "block", width: "100%" }}
