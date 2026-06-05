@@ -17,12 +17,13 @@
 // Digistore retries the IPN until it sees plaintext "OK" — JSON
 // responses cause retry storms even when the status is 200.
 //
-// Product routing (5 owned products on the new Digistore account):
-//   688387                 → $29 course access (welcome email + magic link)
-//   688372 ($197 upsell),  → 11 AI Model photos (upsell_orders + Tally
-//   688369 ($97  downsell)   preferences pipeline; mirrors Hotmart upsell)
-//   688382 ($47 upsell),   → video product — NOT YET WIRED UP. Records
-//   688378 ($27 downsell)    sale + Discord alert; no customer email.
+// Product routing (3 owned products on the Digistore account):
+//   688952                 → $29 course access (welcome email + magic link)
+//   688942                 → $197 11 AI Model photos (upsell_orders + Tally
+//                            preferences pipeline; mirrors Hotmart upsell)
+//   688941                 → $47 "3x More Results" PDF — auto-emails the
+//                            download link when UPSELL_47_PDF_URL is set;
+//                            sale-only + Discord alert while URL is empty.
 //   anything else          → fallback to course access (no sales row;
 //                            preserves prior behavior for unknown ids)
 
@@ -42,11 +43,15 @@ const resend = new Resend(process.env.RESEND_API_KEY!);
 const PAYMENT_EVENTS = ["on_payment"];
 const REFUNDED_EVENTS = ["on_refund", "on_chargeback"];
 
-const PRODUCT_COURSE = "688387";
-const PRODUCT_VIDEO_UPSELL = "688382";
-const PRODUCT_VIDEO_DOWNSELL = "688378";
-const PRODUCT_PHOTO_UPSELL = "688372";
-const PRODUCT_PHOTO_DOWNSELL = "688369";
+const PRODUCT_COURSE = "688952";
+const PRODUCT_PHOTO = "688942";
+const PRODUCT_PDF_47 = "688941";
+
+// TODO: paste the $47 PDF URL here when ready.
+// While empty, $47 sales are recorded + Discord-notified but the
+// buyer receives no email (no broken download link). Pasting the
+// URL flips the flow live — no other change required.
+const UPSELL_47_PDF_URL = "";
 
 const OK_RESPONSE = () =>
   new NextResponse("OK", {
@@ -266,6 +271,44 @@ function photoPreferencesEmailHTML(
   `;
 }
 
+function pdfDeliveryEmailHTML(firstName: string, pdfUrl: string): string {
+  return `
+    <span style="display:none;font-size:1px;max-height:0;overflow:hidden;opacity:0;">Your 3x More Results PDF is ready to download</span>
+    <div style="background-color:#0a0a0a;padding:48px 20px;font-family:sans-serif;">
+      <div style="max-width:520px;margin:0 auto;">
+
+        <div style="text-align:center;margin-bottom:32px;">
+          <span style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.5px;">AIM</span>
+          <span style="font-size:22px;font-weight:800;color:#8b5cf6;letter-spacing:-0.5px;"> Method</span>
+        </div>
+
+        <div style="background-color:#111111;border:1px solid #222222;border-radius:16px;overflow:hidden;">
+          <div style="height:3px;background-color:#8b5cf6;"></div>
+          <div style="padding:40px 36px;">
+
+            <h1 style="font-size:24px;font-weight:800;color:#8b5cf6;margin:0 0 6px;">Your 3x More Results PDF 📄</h1>
+            <p style="font-size:15px;color:#9ca3af;margin:0 0 32px;">Hi ${firstName}, thanks for your purchase. Your guide is ready — download it below.</p>
+
+            <div style="text-align:center;">
+              <a href="${pdfUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;">Download PDF →</a>
+            </div>
+
+            <div style="border-top:1px solid #222222;margin-top:40px;padding-top:24px;">
+              <p style="font-size:13px;color:#9ca3af;margin:0;line-height:1.6;">
+                Save the file once you download it — bookmark the PDF locally so you always have it on hand.
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+        <p style="text-align:center;font-size:12px;color:#374151;margin-top:28px;">© 2025 AIM Method · All rights reserved</p>
+
+      </div>
+    </div>
+  `;
+}
+
 async function provisionCourseAccess({
   email,
   firstName,
@@ -448,11 +491,11 @@ async function insertDigistoreSale({
 }
 
 // Refund / chargeback dispatch.
-// For photo products, mark the upsell_orders row "refunded" (mirrors
-// the Hotmart refund pattern). For the course and the video TODO
+// For the photo product, mark the upsell_orders row "refunded"
+// (mirrors the Hotmart refund pattern). For the course and the PDF
 // products, refund is informational only — no automatic access
-// revocation (matches Hotmart behavior for the $29 course flow);
-// owner handles manually via Discord notification.
+// revocation, no PDF email rollback (matches Hotmart behavior for
+// the $29 course flow); owner handles manually via Discord notification.
 async function handleDigistoreRefund({
   event,
   fields,
@@ -464,9 +507,7 @@ async function handleDigistoreRefund({
   const orderId = fields.orderId;
   const email = fields.email?.toLowerCase().trim() ?? "";
 
-  const isPhoto =
-    productId === PRODUCT_PHOTO_UPSELL ||
-    productId === PRODUCT_PHOTO_DOWNSELL;
+  const isPhoto = productId === PRODUCT_PHOTO;
 
   if (isPhoto && orderId) {
     const { error } = await supabaseAdmin
@@ -577,15 +618,12 @@ export async function POST(req: NextRequest) {
   );
 
   // ============================================================
-  // BRANCH A: photo delivery — 688372 ($197) / 688369 ($97)
+  // BRANCH A: photo delivery — 688942 ($197)
   // Mirrors the Hotmart photo upsell pipeline (upsell_orders +
   // Tally preferences flow). Same downstream pipeline generates
   // the 11 photos and delivers them.
   // ============================================================
-  if (
-    productId === PRODUCT_PHOTO_UPSELL ||
-    productId === PRODUCT_PHOTO_DOWNSELL
-  ) {
+  if (productId === PRODUCT_PHOTO) {
     const result = await provisionPhotoOrder({
       email,
       firstName: fields.firstName,
@@ -609,35 +647,65 @@ export async function POST(req: NextRequest) {
   }
 
   // ============================================================
-  // BRANCH B: video product — 688382 ($47) / 688378 ($27)
-  // TODO: wire up $47/$27 video delivery once the video is
-  // recorded & hosted. For now: log the sale, write the sales
-  // row, fire the Discord notification. NO customer email is
-  // sent because there's no product to deliver yet.
+  // BRANCH B: PDF delivery — 688941 ($47 "3x More Results")
+  // Auto-emails the download link when UPSELL_47_PDF_URL is set.
+  // While the constant is empty, records the sale + fires a loud
+  // Discord alert so the owner knows to deliver manually — no
+  // broken-link email goes to the buyer. Pasting the URL flips
+  // this to live delivery on the very next sale, no other change.
   // ============================================================
-  if (
-    productId === PRODUCT_VIDEO_UPSELL ||
-    productId === PRODUCT_VIDEO_DOWNSELL
-  ) {
-    console.warn(
-      `[digistore-webhook] VIDEO PRODUCT SOLD product_id=${productId} email=${email} order_id=${fields.orderId} — no delivery wired up yet`,
-    );
+  if (productId === PRODUCT_PDF_47) {
     await insertDigistoreSale({ email, fields });
-    await notifySale({
-      channel: "digistore",
-      email,
-      name: fields.fullName,
-      amountCents: fields.amountCents,
-      currency: fields.currency,
-      product: fields.productName ?? "Video product",
-      extraNote:
-        "⚠️ Video product paid — NO DELIVERY WIRED UP YET. Customer was charged but received no email. Reach out manually.",
-    });
+
+    if (UPSELL_47_PDF_URL.length > 0) {
+      const { error: emailErr } = await resend.emails.send({
+        from: "AIM Method <noreply@aimodelmethods.com>",
+        to: email,
+        subject: "Your 3x More Results PDF is ready 📄",
+        html: pdfDeliveryEmailHTML(fields.firstName, UPSELL_47_PDF_URL),
+      });
+      if (emailErr) {
+        console.error(
+          `[digistore-webhook] PDF email error orderId=${fields.orderId}:`,
+          emailErr,
+        );
+      } else {
+        console.log(
+          `[digistore-webhook] PDF email sent to ${email} orderId=${fields.orderId}`,
+        );
+      }
+
+      await notifySale({
+        channel: "digistore",
+        email,
+        name: fields.fullName,
+        amountCents: fields.amountCents,
+        currency: fields.currency,
+        product: fields.productName ?? "3x More Results PDF",
+        extraNote: emailErr
+          ? `⚠️ PDF email FAILED to send: ${emailErr.message ?? "unknown"}. Customer paid — reach out manually.`
+          : null,
+      });
+    } else {
+      console.warn(
+        `[digistore-webhook] PDF PRODUCT SOLD product_id=${productId} email=${email} order_id=${fields.orderId} — UPSELL_47_PDF_URL is empty, no email sent`,
+      );
+      await notifySale({
+        channel: "digistore",
+        email,
+        name: fields.fullName,
+        amountCents: fields.amountCents,
+        currency: fields.currency,
+        product: fields.productName ?? "3x More Results PDF",
+        extraNote:
+          "⚠️ $47 PDF product paid — NO PDF URL configured yet. Customer was charged but received no email. Set UPSELL_47_PDF_URL or reach out manually.",
+      });
+    }
     return OK_RESPONSE();
   }
 
   // ============================================================
-  // BRANCH C: course (688387) + unknown fallback
+  // BRANCH C: course (688952) + unknown fallback
   // Course access flow (existing $29 logic, extracted into
   // provisionCourseAccess). For the owned course id, write to
   // sales. For unknown ids, provision access as fallback but
