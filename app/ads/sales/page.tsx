@@ -5,11 +5,11 @@
 // Pixel-for-pixel identical to the organic version in copy,
 // layout, mobile styling, VSL, all sections.
 //
+// Wired to Digistore product 688952 ($29 course). All 4 CTA
+// buttons open the Digistore checkout in a new tab.
+//
 // The original /sales stays wired to the organic / Hotmart
 // funnel and is NOT touched by this duplicate.
-//
-// ⚠️ CHECKOUT NOT WIRED YET. Paste the Digistore live URL into
-// the empty CHECKOUT_URL constant below — no other change required.
 // =============================================================
 
 "use client";
@@ -59,11 +59,10 @@ const FAQS = [
   { q: "Is the content available in different languages?", a: "The course is in English. However, the methods work globally regardless of your location." },
 ];
 
-// ───── HERE: paste the Digistore checkout URL when ready ─────
 // Ads / Sales page — paid-traffic version of /sales.
-// While empty, the CTA buttons render identically but won't navigate.
-const CHECKOUT_URL = "";
-// ─────────────────────────────────────────────────────────────
+// Wired to Digistore product 688952 ($29 course).
+const CHECKOUT_URL =
+  "https://www.checkout-ds24.com/product/688952?aff=SpackReach2&hide_plans=";
 
 export default function AdsSalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);
