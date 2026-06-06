@@ -17,13 +17,17 @@
 // Digistore retries the IPN until it sees plaintext "OK" — JSON
 // responses cause retry storms even when the status is 200.
 //
-// Product routing (3 owned products on the Digistore account):
+// Product routing (5 owned products on the Digistore account):
 //   688952                 → $29 course access (welcome email + magic link)
 //   688942                 → $197 11 AI Model photos (upsell_orders + Tally
 //                            preferences pipeline; mirrors Hotmart upsell)
 //   688941                 → $47 "3x More Results" PDF — auto-emails the
 //                            download link when UPSELL_47_PDF_URL is set;
 //                            sale-only + Discord alert while URL is empty.
+//   688946                 → Lifetime access order bump — INERT for now
+//                            (sale + Discord notify; no email, no delivery).
+//   688943                 → Weekly content calendar order bump — INERT for
+//                            now (sale + Discord notify; no email, no delivery).
 //   anything else          → fallback to course access (no sales row;
 //                            preserves prior behavior for unknown ids)
 
@@ -46,6 +50,8 @@ const REFUNDED_EVENTS = ["on_refund", "on_chargeback"];
 const PRODUCT_COURSE = "688952";
 const PRODUCT_PHOTO = "688942";
 const PRODUCT_PDF_47 = "688941";
+const PRODUCT_LIFETIME_BUMP = "688946";
+const PRODUCT_WEEKLY_BUMP = "688943";
 
 // TODO: paste the $47 PDF URL here when ready.
 // While empty, $47 sales are recorded + Discord-notified but the
@@ -701,6 +707,56 @@ export async function POST(req: NextRequest) {
           "⚠️ $47 PDF product paid — NO PDF URL configured yet. Customer was charged but received no email. Set UPSELL_47_PDF_URL or reach out manually.",
       });
     }
+    return OK_RESPONSE();
+  }
+
+  // ============================================================
+  // BRANCH D: Lifetime access order bump — 688946
+  // INERT for now — records the sale + alerts Discord, no email,
+  // no delivery. Owner extends course access manually until the
+  // automated extension is built.
+  // TODO: extend course access duration when Lifetime delivery is built.
+  // ============================================================
+  if (productId === PRODUCT_LIFETIME_BUMP) {
+    console.warn(
+      `[digistore-webhook] LIFETIME ORDER BUMP SOLD product_id=${productId} email=${email} order_id=${fields.orderId} — no delivery wired up yet`,
+    );
+    await insertDigistoreSale({ email, fields });
+    await notifySale({
+      channel: "digistore",
+      email,
+      name: fields.fullName,
+      amountCents: fields.amountCents,
+      currency: fields.currency,
+      product: fields.productName ?? "Lifetime access bump",
+      extraNote:
+        "⚠️ Lifetime access order bump paid — DELIVERY NOT WIRED YET. Customer was charged but received no email. Extend their course access manually (3-4 years) until the automated extension is built.",
+    });
+    return OK_RESPONSE();
+  }
+
+  // ============================================================
+  // BRANCH E: Weekly content calendar order bump — 688943
+  // INERT for now — records the sale + alerts Discord, no email,
+  // no delivery. Owner delivers the weekly calendar/prompts manually
+  // until the subscription automation is built.
+  // TODO: build weekly calendar automation when subscription delivery is ready.
+  // ============================================================
+  if (productId === PRODUCT_WEEKLY_BUMP) {
+    console.warn(
+      `[digistore-webhook] WEEKLY CALENDAR ORDER BUMP SOLD product_id=${productId} email=${email} order_id=${fields.orderId} — no delivery wired up yet`,
+    );
+    await insertDigistoreSale({ email, fields });
+    await notifySale({
+      channel: "digistore",
+      email,
+      name: fields.fullName,
+      amountCents: fields.amountCents,
+      currency: fields.currency,
+      product: fields.productName ?? "Weekly content calendar bump",
+      extraNote:
+        "⚠️ Weekly content calendar order bump paid — DELIVERY NOT WIRED YET. Customer was charged but received no email. Deliver the weekly calendar + prompts manually until the subscription automation is built.",
+    });
     return OK_RESPONSE();
   }
 
