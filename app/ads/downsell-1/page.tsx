@@ -1,29 +1,39 @@
 // =============================================================
 // Ads variant — Downsell 1 (3x More Offer downsell, $27 one-time)
 // -------------------------------------------------------------
-// Duplicate of /downsell-1 for the PAID-TRAFFIC funnel (Digistore
-// checkout). Pixel-for-pixel identical to the organic version;
-// only the CHECKOUT_URL constant below will point at Digistore
-// once the gestor de tráfego sets up the product.
+// Duplicate of /downsell-1 for the PAID-TRAFFIC funnel.
+// Wired to the Digistore 1-click upsell flow:
+//   YES → https://www.checkout-ds24.com/answer/yes?template=light
+//   NO  → https://www.checkout-ds24.com/answer/no
+// Digistore handles the same-payment-method charge and redirects
+// to the next funnel step configured in its admin (upsell-2 for
+// both YES and NO on this page — see Digistore admin upsell config).
 //
 // The original /downsell-1 stays wired to the organic / Hotmart
 // funnel and is NOT touched by this duplicate.
-//
-// ⚠️ CHECKOUT NOT WIRED YET. Paste the Digistore live URL into
-// the empty string on line 30 — no other change required.
 // =============================================================
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Script from "next/script";
 import { SpinWheel, type SpinWheelSlice } from "@/components/SpinWheel";
 import { TikTokPixel } from "@/components/TikTokPixel";
 
-// ───── HERE: paste the Digistore checkout URL when ready ─────
-// Ads / Downsell 1 / 3x More Offer — $27 one-time after roulette discount.
-// While empty, the claim button renders identically but won't navigate.
-const CHECKOUT_URL = "";
-// ─────────────────────────────────────────────────────────────
+const DIGISTORE_YES_URL =
+  "https://www.checkout-ds24.com/answer/yes?template=light";
+const DIGISTORE_NO_URL = "https://www.checkout-ds24.com/answer/no";
+
+// Calls the global digistoreUpsell() installed by digistore.js.
+// Safe to call before the script loads (no-op if missing) AND safe
+// to call multiple times — digistoreUpsell() just re-reads the URL
+// params Digistore stores after the original purchase.
+function callDigistoreUpsell() {
+  if (typeof window === "undefined") return;
+  const fn = (window as unknown as { digistoreUpsell?: () => void })
+    .digistoreUpsell;
+  if (typeof fn === "function") fn();
+}
 
 // Wheel slices — same as the organic /downsell-1, gold winning slice gives $20 OFF.
 const SLICES: SpinWheelSlice[] = [
@@ -37,11 +47,23 @@ const SLICES: SpinWheelSlice[] = [
 
 export default function AdsDownsell1Page() {
   const [won, setWon] = useState(false);
-  const hasCheckout = CHECKOUT_URL.length > 0;
+
+  // Cover the cached-script case: if digistore.js was already loaded
+  // on a previous mount/navigation, onLoad on <Script> won't fire
+  // again — running this on mount guarantees digistoreUpsell() is
+  // called in both first-load and cached scenarios.
+  useEffect(() => {
+    callDigistoreUpsell();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-12 sm:py-16">
       <TikTokPixel />
+      <Script
+        src="https://www.digistore24-scripts.com/service/digistore.js"
+        strategy="afterInteractive"
+        onLoad={callDigistoreUpsell}
+      />
       <div className="max-w-2xl mx-auto text-center">
 
         {/* HEADLINE */}
@@ -98,13 +120,7 @@ export default function AdsDownsell1Page() {
               </p>
 
               <a
-                href={hasCheckout ? CHECKOUT_URL : "#"}
-                target={hasCheckout ? "_blank" : undefined}
-                rel={hasCheckout ? "noopener noreferrer" : undefined}
-                onClick={(e) => {
-                  if (!hasCheckout) e.preventDefault();
-                }}
-                aria-disabled={!hasCheckout}
+                href={DIGISTORE_YES_URL}
                 className="inline-block mt-6 bg-green-500 hover:bg-green-600 transition-colors text-white font-bold text-lg px-8 py-4 rounded-xl shadow-lg shadow-green-500/30"
               >
                 🚀 YES — CLAIM MY $27 DISCOUNT
@@ -114,10 +130,10 @@ export default function AdsDownsell1Page() {
           </div>
         )}
 
-        {/* NO THANKS — next funnel step (stays inside /ads/*) */}
+        {/* NO THANKS → Digistore decline (Digistore admin routes to /ads/upsell-2) */}
         <div className="mt-12">
           <a
-            href="/ads/upsell-2"
+            href={DIGISTORE_NO_URL}
             className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
           >
             No thanks
