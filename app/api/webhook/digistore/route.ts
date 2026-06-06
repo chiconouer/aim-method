@@ -26,8 +26,13 @@
 //                            sale-only + Discord alert while URL is empty.
 //   688946                 → Lifetime access order bump — INERT for now
 //                            (sale + Discord notify; no email, no delivery).
-//   688943                 → Weekly content calendar order bump — INERT for
-//                            now (sale + Discord notify; no email, no delivery).
+//   688943                 → Weekly content calendar order bump — calendar
+//                            automation TODO, but subscription state IS now
+//                            tracked: on_payment flips users.subscription_active
+//                            true (until = NOW+8d); last_paid_day/refund flip
+//                            it false. on_payment_missed and on_rebill_cancelled
+//                            are notify-only. Rebill revenue tracked via
+//                            backward-compatible idempotency key (seq>1 suffix).
 //   anything else          → fallback to course access (no sales row;
 //                            preserves prior behavior for unknown ids)
 
@@ -41,11 +46,23 @@ import { insertUserWithSource } from "@/lib/insertUserWithSource";
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
 // Digistore IPN event names (per Digistore24 dev docs Events page).
-// Only on_payment triggers delivery; refund/chargeback are handled
-// separately. All other events (subscription / rebill / affiliate
-// signup / etc.) are silently 200-OK'd.
-const PAYMENT_EVENTS = ["on_payment"];
+// Payment + refund cover one-shot products. Subscription events handle
+// the weekly bump (688943) lifecycle. Every other event is silently 200-OK'd.
+const PAYMENT_EVENTS = ["on_payment"];               // initial + every rebill
 const REFUNDED_EVENTS = ["on_refund", "on_chargeback"];
+// last_paid_day = true end-of-access (after retries exhausted or cancellation
+// grace period ends). on_rebill_cancelled by contrast leaves access alive
+// until the paid period actually runs out — so it's notify-only.
+const SUBSCRIPTION_END_EVENTS = ["last_paid_day"];
+const SUBSCRIPTION_RESUME_EVENTS = ["on_rebill_resumed"];
+// Notify-only — no DB change. on_payment_missed = Digistore will retry;
+// on_rebill_cancelled = customer cancelled but paid period still active.
+const SUBSCRIPTION_INTERIM_EVENTS = ["on_payment_missed", "on_rebill_cancelled"];
+
+// Subscription "until" window — when an on_payment / on_rebill_resumed fires,
+// access extends to NOW + 8 days. 8 = 7 day cycle + 1 day buffer so a late
+// rebill (delayed retry, network lag) doesn't briefly flip a user to inactive.
+const SUBSCRIPTION_WINDOW_MS = 8 * 24 * 60 * 60 * 1000;
 
 const PRODUCT_COURSE = "688952";
 const PRODUCT_PHOTO = "688942";
@@ -75,6 +92,8 @@ type DigistoreFields = {
   amountCents: number | null;
   currency: string | null;
   productName: string | null;
+  /** Rebill counter from Digistore. "1" = initial payment, "2"+ = rebills. */
+  paySequenceNo: string | null;
   raw: Record<string, unknown>;
 };
 
@@ -189,6 +208,7 @@ async function parseBody(req: NextRequest): Promise<DigistoreFields> {
     amountCents: parseAmountToCents(pickField(get, "amount", "amount_brutto")),
     currency: pickField(get, "currency"),
     productName: pickField(get, "product_name"),
+    paySequenceNo: pickField(get, "pay_sequence_no"),
     raw,
   };
 }
@@ -465,10 +485,20 @@ async function insertDigistoreSale({
     return;
   }
 
+  // Backward-compatible idempotency key.
+  // - seq=1 (or absent) → "digistore:<orderId>" (same format pre-subscription
+  //   work; existing rows in sales table use this and won't double-insert).
+  // - seq>=2 → "digistore:<orderId>:seq<N>" so every rebill of a subscription
+  //   becomes its own row in sales (revenue tracking, Discord visibility).
+  const seq = parseInt(fields.paySequenceNo ?? "1", 10);
+  const idempotencyKey = seq > 1
+    ? `digistore:${fields.orderId}:seq${seq}`
+    : `digistore:${fields.orderId}`;
+
   const upperCurrency = (fields.currency ?? "USD").toUpperCase();
   const { error } = await supabaseAdmin.from("sales").upsert(
     {
-      hotmart_transaction_id: `digistore:${fields.orderId}`,
+      hotmart_transaction_id: idempotencyKey,
       buyer_name: fields.fullName || null,
       buyer_email: email,
       amount_cents: fields.amountCents ?? 0,
@@ -480,6 +510,7 @@ async function insertDigistoreSale({
         source: "digistore",
         order_id: fields.orderId,
         product_id: fields.productId,
+        pay_sequence_no: fields.paySequenceNo,
         body: fields.raw,
       },
     },
@@ -487,21 +518,58 @@ async function insertDigistoreSale({
   );
   if (error) {
     console.error(
-      `[digistore-webhook] sales insert FAILED — code=${(error as { code?: string }).code ?? "?"} message="${error.message}" orderId=${fields.orderId} email=${email}`,
+      `[digistore-webhook] sales insert FAILED — code=${(error as { code?: string }).code ?? "?"} message="${error.message}" orderId=${fields.orderId} seq=${seq} email=${email}`,
     );
   } else {
     console.log(
-      `[digistore-webhook] sales row recorded orderId=${fields.orderId} email=${email} amount=${fields.amountCents ?? 0}`,
+      `[digistore-webhook] sales row recorded orderId=${fields.orderId} seq=${seq} key=${idempotencyKey} email=${email} amount=${fields.amountCents ?? 0}`,
     );
   }
 }
 
+// ============================================================
+// Subscription state helper — flips users.subscription_active /
+// subscription_active_until. Best-effort: logs + returns, never
+// throws. Caller decides whether to fire Discord notification.
+// ============================================================
+async function setSubscriptionActive({
+  email,
+  active,
+  until,
+}: {
+  email: string;
+  active: boolean;
+  until: Date | null;
+}): Promise<void> {
+  const untilISO = until ? until.toISOString() : null;
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update({
+      subscription_active: active,
+      subscription_active_until: untilISO,
+    })
+    .eq("email", email);
+  if (error) {
+    console.error(
+      `[digistore-webhook] subscription update FAILED email=${email} active=${active} until=${untilISO ?? "null"} err=${error.message}`,
+    );
+    return;
+  }
+  console.log(
+    `[digistore-webhook] subscription set email=${email} active=${active} until=${untilISO ?? "null"}`,
+  );
+}
+
 // Refund / chargeback dispatch.
 // For the photo product, mark the upsell_orders row "refunded"
-// (mirrors the Hotmart refund pattern). For the course and the PDF
-// products, refund is informational only — no automatic access
-// revocation, no PDF email rollback (matches Hotmart behavior for
-// the $29 course flow); owner handles manually via Discord notification.
+// (mirrors the Hotmart refund pattern). For the weekly subscription
+// product, also flip subscription_active to FALSE so the customer
+// loses access immediately (a refund/chargeback is materially
+// different from a graceful cancellation — see SUBSCRIPTION_INTERIM
+// events for the soft path). For the course / PDF / Lifetime bump,
+// refund is informational only — no automatic access revocation
+// (matches Hotmart behavior for the $29 course flow); owner handles
+// manually via Discord notification.
 async function handleDigistoreRefund({
   event,
   fields,
@@ -514,6 +582,7 @@ async function handleDigistoreRefund({
   const email = fields.email?.toLowerCase().trim() ?? "";
 
   const isPhoto = productId === PRODUCT_PHOTO;
+  const isWeeklySub = productId === PRODUCT_WEEKLY_BUMP;
 
   if (isPhoto && orderId) {
     const { error } = await supabaseAdmin
@@ -537,6 +606,11 @@ async function handleDigistoreRefund({
     console.log(
       `[digistore-webhook] refund logged (no DB rollback) productId=${productId} orderId=${orderId} event=${event}`,
     );
+  }
+
+  // Weekly subscription refund/chargeback — kill access immediately.
+  if (isWeeklySub && email) {
+    await setSubscriptionActive({ email, active: false, until: new Date() });
   }
 
   await notifySale({
@@ -593,14 +667,102 @@ export async function POST(req: NextRequest) {
 
   // ============================================================
   // 4. Event dispatch
-  //    - on_refund / on_chargeback → handleDigistoreRefund
-  //    - on_payment                → delivery path below
-  //    - everything else           → silently ignored (200 OK)
+  //    - on_refund / on_chargeback   → handleDigistoreRefund
+  //    - last_paid_day               → handleSubscriptionEnd
+  //    - on_rebill_resumed           → handleSubscriptionResume
+  //    - on_payment_missed / on_rebill_cancelled → handleSubscriptionInterim
+  //    - on_payment                  → delivery path below
+  //    - everything else             → silently ignored (200 OK)
   // ============================================================
   const event = fields.event ?? "";
+  const eventEmail = fields.email?.toLowerCase().trim() ?? "";
+  const eventProductId = fields.productId ?? "";
 
   if (REFUNDED_EVENTS.includes(event)) {
     await handleDigistoreRefund({ event, fields });
+    return OK_RESPONSE();
+  }
+
+  // -- Subscription: true end of access (post-cancellation grace expired
+  // or retries exhausted). Flip active=false only when product matches
+  // the weekly bump; for any other product this event would be unexpected.
+  if (SUBSCRIPTION_END_EVENTS.includes(event)) {
+    if (eventProductId === PRODUCT_WEEKLY_BUMP && eventEmail) {
+      await setSubscriptionActive({
+        email: eventEmail,
+        active: false,
+        until: new Date(),
+      });
+    } else {
+      console.log(
+        `[digistore-webhook] ${event} for non-subscription product (productId=${eventProductId}) — no DB change`,
+      );
+    }
+    await notifySale({
+      channel: "digistore",
+      eventKind: "refund",
+      email: eventEmail,
+      name: fields.fullName,
+      amountCents: fields.amountCents,
+      currency: fields.currency,
+      product: fields.productName ?? `product_id=${eventProductId}`,
+      extraNote: `Subscription ENDED (event: ${event}) · order_id=${fields.orderId ?? "?"}. Access removed.`,
+    });
+    return OK_RESPONSE();
+  }
+
+  // -- Subscription: reactivated after a pause/cancellation. Flip active=true
+  // and extend the window. Same product-gating as above.
+  if (SUBSCRIPTION_RESUME_EVENTS.includes(event)) {
+    if (eventProductId === PRODUCT_WEEKLY_BUMP && eventEmail) {
+      await setSubscriptionActive({
+        email: eventEmail,
+        active: true,
+        until: new Date(Date.now() + SUBSCRIPTION_WINDOW_MS),
+      });
+    } else {
+      console.log(
+        `[digistore-webhook] ${event} for non-subscription product (productId=${eventProductId}) — no DB change`,
+      );
+    }
+    await notifySale({
+      channel: "digistore",
+      eventKind: "sale",
+      email: eventEmail,
+      name: fields.fullName,
+      amountCents: fields.amountCents,
+      currency: fields.currency,
+      product: fields.productName ?? `product_id=${eventProductId}`,
+      extraNote: `Subscription RESUMED (event: ${event}) · order_id=${fields.orderId ?? "?"}. Access re-enabled.`,
+    });
+    return OK_RESPONSE();
+  }
+
+  // -- Subscription: interim state changes that DON'T affect access:
+  // on_payment_missed (Digistore is retrying) — temporary blip, do nothing.
+  // on_rebill_cancelled — customer cancelled but their already-paid period
+  // is still active. Access kills itself naturally via subscription_active_until,
+  // confirmed later by a last_paid_day event.
+  if (SUBSCRIPTION_INTERIM_EVENTS.includes(event)) {
+    const noteByEvent: Record<string, string> = {
+      on_payment_missed:
+        "⚠️ Rebill payment FAILED — Digistore is retrying. No DB change. If it ultimately fails, last_paid_day will fire and access will be revoked then.",
+      on_rebill_cancelled:
+        "⚠️ Subscription CANCELLED by customer/support — paid period still active until subscription_active_until. last_paid_day will fire when that runs out.",
+    };
+    console.log(
+      `[digistore-webhook] ${event} interim event productId=${eventProductId} email=${eventEmail} order_id=${fields.orderId ?? "?"} — notify-only, no DB change`,
+    );
+    await notifySale({
+      channel: "digistore",
+      eventKind: "refund",
+      email: eventEmail,
+      name: fields.fullName,
+      amountCents: fields.amountCents,
+      currency: fields.currency,
+      product: fields.productName ?? `product_id=${eventProductId}`,
+      extraNote: noteByEvent[event] ?? `Subscription interim event: ${event}`,
+    });
     return OK_RESPONSE();
   }
 
@@ -737,16 +899,25 @@ export async function POST(req: NextRequest) {
 
   // ============================================================
   // BRANCH E: Weekly content calendar order bump — 688943
-  // INERT for now — records the sale + alerts Discord, no email,
-  // no delivery. Owner delivers the weekly calendar/prompts manually
-  // until the subscription automation is built.
+  // Subscription state IS tracked now (this branch is reached for
+  // both the initial on_payment and every weekly rebill — pay_sequence_no
+  // distinguishes them). Calendar AUTOMATION delivery (the email with
+  // prompts/calendar) is still not built — owner sends manually until
+  // the weekly automation is wired.
   // TODO: build weekly calendar automation when subscription delivery is ready.
   // ============================================================
   if (productId === PRODUCT_WEEKLY_BUMP) {
-    console.warn(
-      `[digistore-webhook] WEEKLY CALENDAR ORDER BUMP SOLD product_id=${productId} email=${email} order_id=${fields.orderId} — no delivery wired up yet`,
+    const seq = parseInt(fields.paySequenceNo ?? "1", 10);
+    const isInitial = seq <= 1;
+    const until = new Date(Date.now() + SUBSCRIPTION_WINDOW_MS);
+
+    console.log(
+      `[digistore-webhook] WEEKLY SUB ${isInitial ? "INITIAL" : "REBILL"} product_id=${productId} email=${email} order_id=${fields.orderId} seq=${seq} until=${until.toISOString()}`,
     );
+
     await insertDigistoreSale({ email, fields });
+    await setSubscriptionActive({ email, active: true, until });
+
     await notifySale({
       channel: "digistore",
       email,
@@ -754,8 +925,9 @@ export async function POST(req: NextRequest) {
       amountCents: fields.amountCents,
       currency: fields.currency,
       product: fields.productName ?? "Weekly content calendar bump",
-      extraNote:
-        "⚠️ Weekly content calendar order bump paid — DELIVERY NOT WIRED YET. Customer was charged but received no email. Deliver the weekly calendar + prompts manually until the subscription automation is built.",
+      extraNote: isInitial
+        ? `Week 1 — initial subscription. subscription_active=true until ${until.toISOString()}. ⚠️ Calendar delivery NOT wired yet — send the week's prompts manually.`
+        : `Week ${seq} — rebill. subscription_active=true until ${until.toISOString()}. ⚠️ Calendar delivery NOT wired yet — send the week's prompts manually.`,
     });
     return OK_RESPONSE();
   }
