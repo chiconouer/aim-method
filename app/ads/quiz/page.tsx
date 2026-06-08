@@ -49,19 +49,20 @@ function ImagePlaceholder({
 }: {
   url: string;
   alt: string;
+  /** Only applied to the empty-URL placeholder box (gives it a visible
+   *  default height). Real images set their own height via h-auto. */
   aspectClass?: string;
 }) {
   if (url) {
+    // Container fits the image — block + w-full + h-auto means the rendered
+    // height comes from the image's natural aspect ratio with NO empty
+    // letterbox bars around it. The border/radius wraps the actual image.
     return (
-      // object-contain (not -cover) so each image shows in FULL at its own
-      // aspect ratio. Letterboxing inside the fixed-aspect frame is expected
-      // — bg-[#0d0d0d] matches the placeholder background so letterbox bars
-      // blend with the rest of the page chrome.
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
         alt={alt}
-        className={`w-full ${aspectClass} object-contain rounded-2xl border border-purple-900/30 bg-[#0d0d0d]`}
+        className="block w-full h-auto rounded-2xl border border-purple-900/30"
       />
     );
   }
@@ -78,25 +79,63 @@ function ImagePlaceholder({
 }
 
 function VideoPlaceholder({ url }: { url: string }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [showSoundOverlay, setShowSoundOverlay] = useState(true);
+
+  function handleUnmute() {
+    const v = videoRef.current;
+    if (v) {
+      v.muted = false;
+      // Some browsers pause when unmute happens via JS — re-issue play().
+      v.play().catch(() => {});
+    }
+    setShowSoundOverlay(false);
+  }
+
   if (url) {
-    // autoPlay + muted + loop + playsInline — required combo for inline
-    // autoplay on iOS Safari (muted is the mobile-autoplay gate). Controls
-    // stay visible so users can unmute / replay if they want.
+    // max-w-sm + mx-auto centers the portrait video and caps its width so
+    // it stays a comfortable size on desktop while filling the full width
+    // on mobile. <video> with no aspect class auto-heights from intrinsic
+    // ratio — no wide black side bars, container hugs the video.
     return (
-      <video
-        src={url}
-        autoPlay
-        muted
-        loop
-        playsInline
-        controls
-        className="w-full aspect-video rounded-2xl border border-purple-900/30 bg-black"
-      />
+      <div className="relative w-full max-w-sm mx-auto">
+        <video
+          ref={videoRef}
+          src={url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          controls
+          className="block w-full h-auto rounded-2xl border border-purple-900/30 bg-black"
+        />
+        {showSoundOverlay && (
+          <button
+            type="button"
+            onClick={handleUnmute}
+            aria-label="Tap to enable sound"
+            className="absolute inset-0 flex items-center justify-center rounded-2xl cursor-pointer focus:outline-none focus-visible:bg-black/10 transition-colors"
+          >
+            <span
+              className="flex items-center gap-2 px-5 py-3 rounded-full text-white text-sm font-black tracking-wide"
+              style={{
+                background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+                boxShadow:
+                  "0 0 24px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
+                animation: "soundPulse 1.6s ease-in-out infinite",
+              }}
+            >
+              <span className="text-base" aria-hidden="true">🔊</span>
+              Tap for sound
+            </span>
+          </button>
+        )}
+      </div>
     );
   }
   return (
     <div
-      className="w-full aspect-video rounded-2xl border border-purple-900/30 flex items-center justify-center bg-[#0d0d0d]"
+      className="w-full aspect-video rounded-2xl border border-purple-900/30 flex items-center justify-center bg-[#0d0d0d] max-w-sm mx-auto"
       style={{ boxShadow: "0 0 20px rgba(124,58,237,0.08)" }}
     >
       <span className="text-[10px] uppercase tracking-widest text-purple-700 font-bold">
@@ -131,7 +170,7 @@ function TestimonialsCarousel({ images }: { images: string[] }) {
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="carousel-track flex overflow-x-auto snap-x snap-mandatory scroll-smooth"
+        className="carousel-track flex items-start overflow-x-auto snap-x snap-mandatory scroll-smooth"
       >
         {images.map((url, i) => (
           <div key={i} className="snap-center flex-shrink-0 w-full">
@@ -209,9 +248,9 @@ function Step2({ onContinue }: { onContinue: () => void }) {
         <span className="text-purple-400">30 minutes</span> with simple, free
         tools.
       </h1>
-      {/* Two images side-by-side — keeps the profile + earnings proof
-          visible on one mobile screen along with the text + button below. */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Two images side-by-side. items-start so each image keeps its
+          own natural height (no stretch to match the taller sibling). */}
+      <div className="grid grid-cols-2 gap-2 items-start">
         <ImagePlaceholder
           url={STEP2_PROFILE_IMAGE_URL}
           alt="Example AI profile"
@@ -358,6 +397,10 @@ export default function AdsQuizPage() {
         }
         .carousel-track { -ms-overflow-style: none; scrollbar-width: none; }
         .carousel-track::-webkit-scrollbar { display: none; }
+        @keyframes soundPulse {
+          0%,100%{transform:scale(1);box-shadow:0 0 24px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
+          50%{transform:scale(1.04);box-shadow:0 0 36px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
+        }
       `}</style>
     </div>
   );
