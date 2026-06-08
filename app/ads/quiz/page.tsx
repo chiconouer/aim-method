@@ -15,7 +15,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TikTokPixel } from "@/components/TikTokPixel";
 
@@ -26,7 +26,8 @@ const STEP1_IMAGE_URL = "";
 const STEP2_PROFILE_IMAGE_URL = "";
 const STEP2_EARNINGS_IMAGE_URL = "";
 const STEP3_VIDEO_URL = "";
-const STEP4_RESULTS_IMAGE_URL = "";
+// Step 4 — 5 testimonial images shown in a swipeable carousel
+const STEP4_RESULTS_IMAGES: string[] = ["", "", "", "", ""];
 const STEP5_IMAGE_URL = "";
 // ───────────────────────────────────────────────────────────
 
@@ -84,6 +85,60 @@ function VideoPlaceholder({ url }: { url: string }) {
   );
 }
 
+// Horizontal swipeable carousel — CSS scroll-snap handles touch/drag
+// natively on mobile, no JS gesture lib needed. onScroll measures the
+// current slide index from scrollLeft so dot indicators stay in sync.
+function TestimonialsCarousel({ images }: { images: string[] }) {
+  const [activeSlide, setActiveSlide] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el || el.clientWidth === 0) return;
+    const newIndex = Math.round(el.scrollLeft / el.clientWidth);
+    setActiveSlide((prev) => (prev === newIndex ? prev : newIndex));
+  }
+
+  function goToSlide(i: number) {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  }
+
+  return (
+    <div>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="carousel-track flex overflow-x-auto snap-x snap-mandatory scroll-smooth"
+      >
+        {images.map((url, i) => (
+          <div key={i} className="snap-center flex-shrink-0 w-full">
+            <ImagePlaceholder
+              url={url}
+              alt={`Student result ${i + 1}`}
+              aspectClass="aspect-[4/5]"
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-center gap-2 mt-3">
+        {images.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => goToSlide(i)}
+            aria-label={`Go to slide ${i + 1}`}
+            className={`h-2 rounded-full transition-all duration-300 ${
+              i === activeSlide ? "w-6 bg-purple-400" : "w-2 bg-gray-700"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ContinueButton({
   label,
   onClick,
@@ -128,23 +183,32 @@ function Step1({ onContinue }: { onContinue: () => void }) {
 function Step2({ onContinue }: { onContinue: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+      <h1 className="text-lg sm:text-xl font-black text-white leading-tight text-center mb-3">
         In a moment, I&apos;ll show you how to build your own model in under{" "}
         <span className="text-purple-400">30 minutes</span> with simple, free
         tools.
       </h1>
-      <ImagePlaceholder
-        url={STEP2_PROFILE_IMAGE_URL}
-        alt="Example AI profile"
-      />
-      <p className="text-sm sm:text-base text-gray-300 leading-relaxed text-center mt-5 mb-6">
+      {/* Two images side-by-side — keeps the profile + earnings proof
+          visible on one mobile screen along with the text + button below. */}
+      <div className="grid grid-cols-2 gap-2">
+        <ImagePlaceholder
+          url={STEP2_PROFILE_IMAGE_URL}
+          alt="Example AI profile"
+          aspectClass="aspect-[3/4]"
+        />
+        <ImagePlaceholder
+          url={STEP2_EARNINGS_IMAGE_URL}
+          alt="Earnings proof"
+          aspectClass="aspect-[3/4]"
+        />
+      </div>
+      <p className="text-[13px] sm:text-sm text-gray-300 leading-snug text-center mt-3">
         This profile was built 100% with AI. Less than 30 days old, and it&apos;s
         already pulled in over{" "}
         <span className="text-green-400 font-bold">$10,000</span> and gained{" "}
         <span className="text-purple-400 font-bold">14k followers</span>.
       </p>
-      <ImagePlaceholder url={STEP2_EARNINGS_IMAGE_URL} alt="Earnings proof" />
-      <p className="text-sm sm:text-base text-gray-300 leading-relaxed text-center mt-5">
+      <p className="text-[13px] sm:text-sm text-gray-400 leading-snug text-center mt-2">
         On the next page I&apos;ll show you a new tool — but you&apos;ve gotta
         use it responsibly, deal? 👀
       </p>
@@ -179,11 +243,7 @@ function Step4({ onContinue }: { onContinue: () => void }) {
       <p className="text-sm sm:text-base text-gray-300 leading-relaxed text-center mb-5">
         Take a look at the results some of my students are getting:
       </p>
-      <ImagePlaceholder
-        url={STEP4_RESULTS_IMAGE_URL}
-        alt="Student results"
-        aspectClass="aspect-[4/5]"
-      />
+      <TestimonialsCarousel images={STEP4_RESULTS_IMAGES} />
       <ContinueButton label="Continue →" onClick={onContinue} />
     </>
   );
@@ -275,6 +335,8 @@ export default function AdsQuizPage() {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        .carousel-track { -ms-overflow-style: none; scrollbar-width: none; }
+        .carousel-track::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
   );
