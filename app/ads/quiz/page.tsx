@@ -22,7 +22,8 @@ import { TikTokPixel } from "@/components/TikTokPixel";
 const TOTAL_STEPS = 5;
 
 // ───── HERE: paste media URLs as they become available ─────
-const STEP1_IMAGE_URL = "";
+const STEP1_IMAGE_URL =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/Screenshot%202026-06-07%20at%2011.02.08%20PM.png";
 const STEP2_PROFILE_IMAGE_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/22193051-1742-46C5-8A1B-1B4EB91B3385.jpg";
 const STEP2_EARNINGS_IMAGE_URL =
@@ -52,11 +53,15 @@ function ImagePlaceholder({
 }) {
   if (url) {
     return (
+      // object-contain (not -cover) so each image shows in FULL at its own
+      // aspect ratio. Letterboxing inside the fixed-aspect frame is expected
+      // — bg-[#0d0d0d] matches the placeholder background so letterbox bars
+      // blend with the rest of the page chrome.
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={url}
         alt={alt}
-        className={`w-full ${aspectClass} object-cover rounded-2xl border border-purple-900/30`}
+        className={`w-full ${aspectClass} object-contain rounded-2xl border border-purple-900/30 bg-[#0d0d0d]`}
       />
     );
   }
@@ -74,11 +79,17 @@ function ImagePlaceholder({
 
 function VideoPlaceholder({ url }: { url: string }) {
   if (url) {
+    // autoPlay + muted + loop + playsInline — required combo for inline
+    // autoplay on iOS Safari (muted is the mobile-autoplay gate). Controls
+    // stay visible so users can unmute / replay if they want.
     return (
       <video
         src={url}
-        controls
+        autoPlay
+        muted
+        loop
         playsInline
+        controls
         className="w-full aspect-video rounded-2xl border border-purple-900/30 bg-black"
       />
     );
