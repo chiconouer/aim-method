@@ -25,7 +25,8 @@ const TOTAL_STEPS = 5;
 const STEP1_IMAGE_URL = "";
 const STEP2_PROFILE_IMAGE_URL = "";
 const STEP2_EARNINGS_IMAGE_URL = "";
-const STEP3_VIDEO_URL = "";
+const STEP3_VIDEO_URL =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/D6562B56-AA02-4CEE-B738-A0D8C2362EA1.mov";
 // Step 4 — 5 testimonial images shown in a swipeable carousel
 const STEP4_RESULTS_IMAGES: string[] = ["", "", "", "", ""];
 const STEP5_IMAGE_URL = "";
