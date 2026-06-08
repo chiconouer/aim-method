@@ -1,19 +1,19 @@
-// Admin-only endpoint that (re)generates the entire 12-week weekly prompt
-// bank in one shot using Claude Sonnet 4.6. Auth via Authorization: Bearer
+// Admin-only endpoint that generates ONE WEEK of the weekly prompt bank
+// using a single Claude Sonnet 4.6 call. Auth via Authorization: Bearer
 // <CRON_SECRET> header (same pattern as app/api/daily-report/route.ts).
 //
-// Output: 12 weeks × 7 prompts/day = 84 distinct Instagram post prompts,
-// generic (no per-subscriber placeholders), saved into the
-// weekly_prompt_bank table (upsert by week_number).
+// Accepts the week number as ?week=N query param OR { "week": N } JSON
+// body (N = 1..12). The endpoint generates that week's 7 prompts and
+// upserts ONLY that week into weekly_prompt_bank.
 //
-// The single-call strategy lets Sonnet see the whole bank as it writes,
-// so it can distribute scenes/outfits/lighting naturally and avoid
-// repetition across weeks. All-or-nothing validation before saving — if
-// the model returns malformed or short output, nothing is written.
+// Why one week per call instead of all 12: the original single-call
+// "generate all 84" approach hit Vercel's 300s maxDuration ceiling and
+// 504'd before saving anything. Per-week calls finish in ~10-30s each
+// — well under the timeout, with all-or-nothing validation per week
+// and idempotent upsert (rerunning a week overwrites it cleanly).
 //
-// Long-running: typical wall-clock 60-180s. maxDuration=300 covers it.
-// Streaming via .stream().finalMessage() avoids HTTP timeouts that a
-// non-streamed long generation could hit.
+// To generate the full 12-week bank, loop the endpoint 12 times. See
+// the PR description for a ready-made shell loop.
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -22,38 +22,32 @@ import { supabaseAdmin } from "@/lib/supabase";
 export const maxDuration = 300;
 
 const MODEL = "claude-sonnet-4-6";
-const TOTAL_WEEKS = 12;
 const DAYS_PER_WEEK = 7;
-const TOTAL_PROMPTS = TOTAL_WEEKS * DAYS_PER_WEEK;
+const MIN_WEEK = 1;
+const MAX_WEEK = 12;
 const MIN_PROMPT_BODY_CHARS = 500;
 const MIN_TITLE_CHARS = 3;
 const MAX_TITLE_CHARS = 80;
 
-const SYSTEM_PROMPT = `You are a senior Instagram content strategist for AI-influencer accounts. Your job is to generate a 12-week content bank — 84 distinct Instagram post prompts (12 weeks × 7 days each) for AI-generated model accounts in the girl-next-door / clean-girl / model-off-duty aesthetic. These prompts will be fed into an image generator (Gemini Nano Banana Pro via Replicate) to create posts of each subscriber's custom AI model.
+const SYSTEM_PROMPT = `You are a senior Instagram content strategist for AI-influencer accounts. Your job is to generate ONE WEEK of content prompts (exactly 7 distinct Instagram post prompts, one per day) for AI-generated model accounts in the girl-next-door / clean-girl / model-off-duty aesthetic. These prompts will be fed into an image generator (Gemini Nano Banana Pro via Replicate) to create posts of each subscriber's custom AI model.
 
 OUTPUT FORMAT — CRITICAL
 
-Return a SINGLE JSON object with NO surrounding markdown fences, NO preamble, NO commentary. Exact shape:
+Return a SINGLE JSON object with NO surrounding markdown fences, NO preamble, NO commentary. Exact shape for one week:
 
 {
-  "weeks": [
+  "prompts": [
     {
-      "week_number": 1,
-      "prompts": [
-        {
-          "day": 1,
-          "title": "Short 3-6 word descriptor",
-          "prompt": "Full 13-section prompt body (150-250 words)",
-          "suggested_post_time": "HH:MM ET"
-        }
-        // ... 6 more, days 2-7
-      ]
+      "day": 1,
+      "title": "Short 3-6 word descriptor",
+      "prompt": "Full 13-section prompt body (150-250 words)",
+      "suggested_post_time": "HH:MM ET"
     }
-    // ... 11 more weeks, week_number 2 through 12
+    // ... 6 more, days 2-7 — exactly 7 prompts total
   ]
 }
 
-Exactly 12 weeks. Each week exactly 7 prompts. Days numbered 1..7 within each week. No prose outside the JSON.
+Exactly 7 prompts. Days numbered 1..7. No prose outside the JSON.
 
 PROMPT STRUCTURE — every prompt body MUST contain these 13 sections in this order:
 
@@ -74,17 +68,11 @@ PROMPT STRUCTURE — every prompt body MUST contain these 13 sections in this or
 CONSTRAINTS
 
 - NO placeholder variables. NEVER write "{AGE}", "{ETHNICITY}", "{HAIR_COLOR}", "{NICHE}", "{BODY_TYPE}", "{EYE_COLOR}", or any other curly-brace placeholder. Use generic descriptors ("a stunning young woman", "soft natural makeup", "her hair styled in [describe]").
-- Camera mix: ~60% handheld phone shots (iPhone front-camera selfies OR iPhone main-camera mirror selfies) and ~40% candid shots from a friend with a 35mm lens. Spread the ratio across the 84 prompts, not clustered.
+- Camera mix within this week of 7: aim for ~4 handheld phone shots (iPhone front-camera selfies OR iPhone main-camera mirror selfies) and ~3 candid shots from a friend with a 35mm lens. Don't make all 7 the same camera type.
 - Aesthetic anchor: girl-next-door, casual, realistic. NOT high-fashion editorial. NOT studio. NOT lingerie/swimwear-heavy. Think "prettiest girl in your university dorm", not "Vogue cover".
-- Diversity is critical. Across the 84, vary:
-  • Scene type (bedroom, kitchen, café, gym, park, restaurant, car, beach, street, rooftop, bookstore, museum, brunch spot, library, mall, dog park, balcony, etc.)
-  • Outfit (loungewear, athleisure, jeans + tee, midi dress, sweater, blazer, sundress, hoodie, oversized button-down, etc.)
-  • Lighting (golden hour, midday, morning, candle, blue hour, overcast, gym fluorescent, neon, warm interior, etc.)
-  • Pose (sitting, walking, leaning, mid-laugh, mid-step, lying down, looking over shoulder, etc.)
-  • Expression (neutral confident, soft smile, mid-laugh, contemplative, playful, sleepy, focused, etc.)
-  • Composition (chest-up selfie, full-body mirror, 3/4 candid, profile candid, etc.)
-- Scenes CAN repeat type across weeks (e.g., 2 different gym shots across 12 weeks) but MUST vary angle/outfit/background/expression so each feels fresh. Avoid 2 similar scenes in the same week.
-- IMPORTANT: do NOT copy existing photo-pack prompts verbatim. Create NEW scenes — different from the 11 known onboarding scenes (car driver-seat selfie, morning bedroom selfie, coffee shop selfie with matcha, car passenger with sunglasses, golden hour park selfie, bedroom mirror full-body, gym locker-room mirror, beach walking sundress, restaurant dinner with wine, city street blazer walking, rooftop sunset cocktail).
+- Diversity within these 7: vary scene type, outfit, lighting, pose, expression, composition. No two prompts should feel like the same shot.
+- Scene type ideas to draw from (mix freely): bedroom, kitchen, café, gym, park, restaurant, car, beach, street, rooftop, bookstore, museum, brunch spot, library, mall, dog park, balcony, studio apartment, bathroom mirror, outdoor patio, hotel lobby.
+- IMPORTANT: do NOT copy the existing 11 onboarding photo-pack prompts verbatim (car driver-seat selfie with car interior, morning bedroom selfie with cream knit sweater, coffee shop selfie with matcha latte, car passenger selfie with sunglasses on head, golden hour park selfie with crop top + denim shorts, bedroom mirror full-body selfie with white tank + low-rise jeans, gym locker-room mirror selfie with matching activewear set, beach walking sundress shot, restaurant dinner with red wine, city street blazer walking shot, rooftop sunset cocktail shot). Create NEW scenes/angles/outfits for this week.
 - Each prompt body: 150-250 words. Under 500 chars total will be rejected by validation.
 
 TITLE FIELD
@@ -93,14 +81,11 @@ TITLE FIELD
 
 SUGGESTED POST TIMES
 
-US Instagram engagement-peak windows. Vary across the 84 — don't cluster. Good slots: 08:00, 12:00, 18:00, 18:30, 19:00, 19:30, 20:00, 20:30, 21:00. Match the slot to the vibe (golden hour shot → 19:00 ET, morning bedroom → 08:00 ET, café midday → 12:00 ET, dinner → 20:00 ET, rooftop sunset → 18:30 ET).
+US Instagram engagement-peak windows. Vary across this week's 7 — don't cluster them all at the same time. Good slots: 08:00, 12:00, 18:00, 18:30, 19:00, 19:30, 20:00, 20:30, 21:00. Match the slot to the vibe (golden hour shot → 19:00 ET, morning bedroom → 08:00 ET, café midday → 12:00 ET, dinner → 20:00 ET, rooftop sunset → 18:30 ET).
 
 Format strictly as "HH:MM ET" (24-hour, e.g., "19:30 ET" or "08:00 ET").
 
-Be precise. Be thorough. Generate all 84 prompts in a single JSON response, exactly per the schema above.`;
-
-const USER_PROMPT =
-  "Generate the 12-week bank now. Return only the JSON object — no prose, no markdown fences.";
+Be precise. Be thorough. Generate exactly 7 prompts for this single week, per the schema above.`;
 
 const client = new Anthropic();
 
@@ -111,178 +96,103 @@ interface PromptEntry {
   suggested_post_time: string;
 }
 
-interface WeekEntry {
-  week_number: number;
-  prompts: PromptEntry[];
-}
-
-interface Bank {
-  weeks: WeekEntry[];
-}
-
-// Accepts "HH:MM" or "HH:MM ET" (case-insensitive), 24-hour clock.
 function isValidPostTime(s: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d(\s*ET)?$/i.test(s.trim());
 }
 
-function validateBank(
+function validateWeek(
   parsed: unknown,
-): { ok: true; bank: Bank } | { ok: false; reason: string } {
+): { ok: true; prompts: PromptEntry[] } | { ok: false; reason: string } {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return { ok: false, reason: "root is not an object" };
   }
   const root = parsed as Record<string, unknown>;
-  if (!Array.isArray(root.weeks)) {
-    return { ok: false, reason: "root.weeks is not an array" };
+  if (!Array.isArray(root.prompts)) {
+    return { ok: false, reason: "root.prompts is not an array" };
   }
-  if (root.weeks.length !== TOTAL_WEEKS) {
+  if (root.prompts.length !== DAYS_PER_WEEK) {
     return {
       ok: false,
-      reason: `expected ${TOTAL_WEEKS} weeks, got ${root.weeks.length}`,
+      reason: `expected ${DAYS_PER_WEEK} prompts, got ${root.prompts.length}`,
     };
   }
 
-  const seenWeekNumbers = new Set<number>();
-  const validatedWeeks: WeekEntry[] = [];
+  const seenDays = new Set<number>();
+  const validated: PromptEntry[] = [];
 
-  for (let i = 0; i < root.weeks.length; i++) {
-    const rawWeek = root.weeks[i];
-    if (!rawWeek || typeof rawWeek !== "object" || Array.isArray(rawWeek)) {
-      return { ok: false, reason: `weeks[${i}] is not an object` };
-    }
-    const week = rawWeek as Record<string, unknown>;
-    const weekNumber = week.week_number;
+  for (let i = 0; i < root.prompts.length; i++) {
+    const rawPrompt = root.prompts[i];
     if (
-      typeof weekNumber !== "number" ||
-      !Number.isInteger(weekNumber) ||
-      weekNumber < 1 ||
-      weekNumber > TOTAL_WEEKS
+      !rawPrompt ||
+      typeof rawPrompt !== "object" ||
+      Array.isArray(rawPrompt)
+    ) {
+      return { ok: false, reason: `prompts[${i}] is not an object` };
+    }
+    const p = rawPrompt as Record<string, unknown>;
+    const day = p.day;
+    if (
+      typeof day !== "number" ||
+      !Number.isInteger(day) ||
+      day < 1 ||
+      day > DAYS_PER_WEEK
     ) {
       return {
         ok: false,
-        reason: `weeks[${i}].week_number invalid: ${JSON.stringify(weekNumber)}`,
+        reason: `prompts[${i}].day invalid: ${JSON.stringify(day)}`,
       };
     }
-    if (seenWeekNumbers.has(weekNumber)) {
-      return { ok: false, reason: `duplicate week_number: ${weekNumber}` };
+    if (seenDays.has(day)) {
+      return { ok: false, reason: `duplicate day ${day}` };
     }
-    seenWeekNumbers.add(weekNumber);
+    seenDays.add(day);
 
-    if (!Array.isArray(week.prompts)) {
+    const title = p.title;
+    if (
+      typeof title !== "string" ||
+      title.length < MIN_TITLE_CHARS ||
+      title.length > MAX_TITLE_CHARS
+    ) {
       return {
         ok: false,
-        reason: `week ${weekNumber}: prompts is not an array`,
+        reason: `day ${day}: title invalid (must be ${MIN_TITLE_CHARS}-${MAX_TITLE_CHARS} chars, got ${typeof title === "string" ? title.length : "non-string"})`,
       };
     }
-    if (week.prompts.length !== DAYS_PER_WEEK) {
+
+    const prompt = p.prompt;
+    if (typeof prompt !== "string" || prompt.length < MIN_PROMPT_BODY_CHARS) {
       return {
         ok: false,
-        reason: `week ${weekNumber}: expected ${DAYS_PER_WEEK} prompts, got ${week.prompts.length}`,
+        reason: `day ${day}: prompt body too short (got ${typeof prompt === "string" ? prompt.length : 0} chars, need >= ${MIN_PROMPT_BODY_CHARS})`,
       };
     }
 
-    const seenDays = new Set<number>();
-    const validatedPrompts: PromptEntry[] = [];
-
-    for (let j = 0; j < week.prompts.length; j++) {
-      const rawPrompt = week.prompts[j];
-      if (
-        !rawPrompt ||
-        typeof rawPrompt !== "object" ||
-        Array.isArray(rawPrompt)
-      ) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber} prompts[${j}] is not an object`,
-        };
-      }
-      const p = rawPrompt as Record<string, unknown>;
-      const day = p.day;
-      if (
-        typeof day !== "number" ||
-        !Number.isInteger(day) ||
-        day < 1 ||
-        day > DAYS_PER_WEEK
-      ) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber} prompts[${j}].day invalid: ${JSON.stringify(day)}`,
-        };
-      }
-      if (seenDays.has(day)) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber}: duplicate day ${day}`,
-        };
-      }
-      seenDays.add(day);
-
-      const title = p.title;
-      if (
-        typeof title !== "string" ||
-        title.length < MIN_TITLE_CHARS ||
-        title.length > MAX_TITLE_CHARS
-      ) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber} day ${day}: title invalid (must be ${MIN_TITLE_CHARS}-${MAX_TITLE_CHARS} chars, got ${typeof title === "string" ? title.length : "non-string"})`,
-        };
-      }
-
-      const prompt = p.prompt;
-      if (typeof prompt !== "string" || prompt.length < MIN_PROMPT_BODY_CHARS) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber} day ${day}: prompt body too short (got ${typeof prompt === "string" ? prompt.length : 0} chars, need >= ${MIN_PROMPT_BODY_CHARS})`,
-        };
-      }
-
-      // Reject leftover placeholders that should have been substituted.
-      if (/\{[A-Z_]+\}/.test(prompt)) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber} day ${day}: prompt contains unresolved {PLACEHOLDER} — must be generic`,
-        };
-      }
-
-      const postTime = p.suggested_post_time;
-      if (typeof postTime !== "string" || !isValidPostTime(postTime)) {
-        return {
-          ok: false,
-          reason: `week ${weekNumber} day ${day}: suggested_post_time invalid: ${JSON.stringify(postTime)}`,
-        };
-      }
-
-      validatedPrompts.push({
-        day,
-        title: title.trim(),
-        prompt: prompt.trim(),
-        suggested_post_time: postTime.trim(),
-      });
+    if (/\{[A-Z_]+\}/.test(prompt)) {
+      return {
+        ok: false,
+        reason: `day ${day}: prompt contains unresolved {PLACEHOLDER} — must be generic`,
+      };
     }
 
-    validatedWeeks.push({
-      week_number: weekNumber,
-      prompts: validatedPrompts,
+    const postTime = p.suggested_post_time;
+    if (typeof postTime !== "string" || !isValidPostTime(postTime)) {
+      return {
+        ok: false,
+        reason: `day ${day}: suggested_post_time invalid: ${JSON.stringify(postTime)}`,
+      };
+    }
+
+    validated.push({
+      day,
+      title: title.trim(),
+      prompt: prompt.trim(),
+      suggested_post_time: postTime.trim(),
     });
   }
 
-  const totalPrompts = validatedWeeks.reduce(
-    (sum, w) => sum + w.prompts.length,
-    0,
-  );
-  if (totalPrompts !== TOTAL_PROMPTS) {
-    return {
-      ok: false,
-      reason: `total prompts mismatch: ${totalPrompts} (expected ${TOTAL_PROMPTS})`,
-    };
-  }
-
-  return { ok: true, bank: { weeks: validatedWeeks } };
+  return { ok: true, prompts: validated };
 }
 
-// Strip a single set of leading/trailing markdown fences if Sonnet
-// adds them despite instructions. Defensive — most calls return raw JSON.
 function stripMarkdownFences(s: string): string {
   const trimmed = s.trim();
   if (!trimmed.startsWith("```")) return trimmed;
@@ -290,6 +200,34 @@ function stripMarkdownFences(s: string): string {
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```\s*$/, "")
     .trim();
+}
+
+async function resolveWeekParam(req: NextRequest): Promise<number | null> {
+  // Query param first (used by the recommended shell-loop pattern).
+  const urlWeek = req.nextUrl.searchParams.get("week");
+  let weekStr: string | null = urlWeek;
+
+  // JSON body fallback — for callers that prefer a body payload.
+  if (!weekStr) {
+    try {
+      const body = await req.json();
+      if (
+        body &&
+        typeof body === "object" &&
+        !Array.isArray(body) &&
+        "week" in body
+      ) {
+        weekStr = String((body as Record<string, unknown>).week);
+      }
+    } catch {
+      // No body or invalid JSON — fall through, week check below rejects.
+    }
+  }
+
+  if (weekStr === null || weekStr === undefined || weekStr === "") return null;
+  const week = parseInt(weekStr, 10);
+  if (!Number.isInteger(week) || week < MIN_WEEK || week > MAX_WEEK) return null;
+  return week;
 }
 
 export async function POST(req: NextRequest) {
@@ -308,22 +246,38 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 2. Call Anthropic with streaming (long output, avoid HTTP timeouts).
+  // 2. Resolve target week (?week=N query param or { "week": N } JSON body).
+  const week = await resolveWeekParam(req);
+  if (week === null) {
+    return NextResponse.json(
+      {
+        error: `Missing or invalid 'week' param — must be integer ${MIN_WEEK}-${MAX_WEEK}. Pass as ?week=N query param or { "week": N } JSON body.`,
+      },
+      { status: 400 },
+    );
+  }
+
+  console.log(`[weekly-bank-gen] starting generation for week ${week}`);
+
+  // 3. Call Anthropic with streaming (still streaming even though one week
+  //    is much smaller than the original 84 — keeps the connection alive
+  //    and avoids hidden timeouts).
   const startedAt = Date.now();
   let rawText = "";
   let inputTokens = 0;
   let outputTokens = 0;
 
   try {
+    const userPrompt = `Generate week #${week} of the 12-week series. Return ONE week of 7 prompts as a JSON object — no prose, no markdown fences.`;
     // output_config + adaptive thinking are recent SDK additions; cast at
     // the param boundary so a slightly older @types build doesn't block us.
     const params = {
       model: MODEL,
-      max_tokens: 32000,
+      max_tokens: 6000,
       thinking: { type: "adaptive" as const },
       output_config: { effort: "high" as const },
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user" as const, content: USER_PROMPT }],
+      messages: [{ role: "user" as const, content: userPrompt }],
     };
     const stream = client.messages.stream(
       params as unknown as Parameters<typeof client.messages.stream>[0],
@@ -340,28 +294,32 @@ export async function POST(req: NextRequest) {
     outputTokens = final.usage.output_tokens;
 
     console.log(
-      `[weekly-bank-gen] Anthropic returned ${rawText.length} chars, in=${inputTokens} out=${outputTokens}`,
+      `[weekly-bank-gen] week ${week} — Anthropic returned ${rawText.length} chars, in=${inputTokens} out=${outputTokens}`,
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[weekly-bank-gen] Anthropic call failed:", msg);
+    console.error(
+      `[weekly-bank-gen] week ${week} — Anthropic call failed:`,
+      msg,
+    );
     return NextResponse.json(
-      { error: "Anthropic call failed", detail: msg },
+      { error: "Anthropic call failed", week, detail: msg },
       { status: 502 },
     );
   }
 
-  // 3. Parse JSON (defensive against accidental markdown fences).
+  // 4. Parse JSON (defensive markdown-fence strip).
   const cleaned = stripMarkdownFences(rawText);
   let parsed: unknown;
   try {
     parsed = JSON.parse(cleaned);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("[weekly-bank-gen] JSON parse failed:", msg);
+    console.error(`[weekly-bank-gen] week ${week} — JSON parse failed:`, msg);
     return NextResponse.json(
       {
         error: "Model returned invalid JSON",
+        week,
         detail: msg,
         preview: rawText.slice(0, 300),
       },
@@ -369,59 +327,57 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 4. Validate (all-or-nothing — fail before writing anything).
-  const validation = validateBank(parsed);
+  // 5. Validate (all-or-nothing for this week).
+  const validation = validateWeek(parsed);
   if (!validation.ok) {
     console.error(
-      `[weekly-bank-gen] Validation failed: ${validation.reason}`,
+      `[weekly-bank-gen] week ${week} — validation failed: ${validation.reason}`,
     );
     return NextResponse.json(
       {
-        error: "Generated bank failed validation",
+        error: "Generated week failed validation",
+        week,
         detail: validation.reason,
       },
       { status: 422 },
     );
   }
 
-  // 5. Upsert all 12 weeks. On any DB error, return 500 — partial state is
-  // self-healing on re-run since upsert is idempotent by week_number.
-  const generatedAt = new Date().toISOString();
-  for (const week of validation.bank.weeks) {
-    const { error } = await supabaseAdmin
-      .from("weekly_prompt_bank")
-      .upsert(
-        {
-          week_number: week.week_number,
-          prompts: week.prompts,
-          generated_at: generatedAt,
-        },
-        { onConflict: "week_number" },
-      );
-    if (error) {
-      console.error(
-        `[weekly-bank-gen] DB upsert failed for week ${week.week_number}:`,
-        error.message,
-      );
-      return NextResponse.json(
-        {
-          error: `DB upsert failed for week ${week.week_number}`,
-          detail: error.message,
-        },
-        { status: 500 },
-      );
-    }
+  // 6. Upsert just this week. Idempotent — rerunning overwrites.
+  const { error } = await supabaseAdmin
+    .from("weekly_prompt_bank")
+    .upsert(
+      {
+        week_number: week,
+        prompts: validation.prompts,
+        generated_at: new Date().toISOString(),
+      },
+      { onConflict: "week_number" },
+    );
+  if (error) {
+    console.error(
+      `[weekly-bank-gen] week ${week} — DB upsert failed:`,
+      error.message,
+    );
+    return NextResponse.json(
+      {
+        error: `DB upsert failed for week ${week}`,
+        week,
+        detail: error.message,
+      },
+      { status: 500 },
+    );
   }
 
   const durationMs = Date.now() - startedAt;
   console.log(
-    `[weekly-bank-gen] saved ${TOTAL_WEEKS} weeks (${TOTAL_PROMPTS} prompts) in ${durationMs}ms`,
+    `[weekly-bank-gen] week ${week} saved (${DAYS_PER_WEEK} prompts) in ${durationMs}ms`,
   );
 
   return NextResponse.json({
     ok: true,
-    weeks_saved: TOTAL_WEEKS,
-    prompts_total: TOTAL_PROMPTS,
+    week,
+    prompts_saved: DAYS_PER_WEEK,
     model: MODEL,
     input_tokens: inputTokens,
     output_tokens: outputTokens,
