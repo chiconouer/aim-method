@@ -269,19 +269,21 @@ export async function POST(req: NextRequest) {
 
   try {
     const userPrompt = `Generate week #${week} of the 12-week series. Return ONE week of 7 prompts as a JSON object — no prose, no markdown fences.`;
-    // output_config + adaptive thinking are recent SDK additions; cast at
-    // the param boundary so a slightly older @types build doesn't block us.
-    const params = {
+    // No `thinking` and no `output_config.effort` here on purpose.
+    //
+    // The first version of this route used `thinking: { type: "adaptive" }`
+    // + `effort: "high"` and the model consumed the entire max_tokens
+    // budget on thinking tokens, returning zero text blocks (empty
+    // rawText → 422 "Unexpected end of JSON input"). Generating a
+    // structured JSON that follows a strict template doesn't benefit
+    // from thinking — plain generation is faster, cheaper, and reliably
+    // produces the JSON.
+    const stream = client.messages.stream({
       model: MODEL,
       max_tokens: 6000,
-      thinking: { type: "adaptive" as const },
-      output_config: { effort: "high" as const },
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user" as const, content: userPrompt }],
-    };
-    const stream = client.messages.stream(
-      params as unknown as Parameters<typeof client.messages.stream>[0],
-    );
+      messages: [{ role: "user", content: userPrompt }],
+    });
     const final = await stream.finalMessage();
 
     rawText = final.content
@@ -292,10 +294,30 @@ export async function POST(req: NextRequest) {
 
     inputTokens = final.usage.input_tokens;
     outputTokens = final.usage.output_tokens;
+    const stopReason = final.stop_reason ?? "unknown";
 
     console.log(
-      `[weekly-bank-gen] week ${week} — Anthropic returned ${rawText.length} chars, in=${inputTokens} out=${outputTokens}`,
+      `[weekly-bank-gen] week ${week} — Anthropic returned ${rawText.length} chars, stop_reason=${stopReason}, in=${inputTokens} out=${outputTokens}`,
     );
+
+    // Distinguish "model returned nothing" from "model returned malformed
+    // JSON" so future failures are easier to diagnose at a glance.
+    if (!rawText) {
+      return NextResponse.json(
+        {
+          error: "Model returned empty text",
+          week,
+          stop_reason: stopReason,
+          input_tokens: inputTokens,
+          output_tokens: outputTokens,
+          hint:
+            stopReason === "max_tokens"
+              ? "Output cut off — raise max_tokens or simplify the system prompt."
+              : "Model produced no text blocks; check Anthropic dashboard for the request.",
+        },
+        { status: 502 },
+      );
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(
