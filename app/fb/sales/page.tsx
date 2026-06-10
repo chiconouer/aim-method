@@ -17,6 +17,7 @@
 
 "use client";
 import { useEffect, useRef } from "react";
+import { FbTracking } from "@/components/FbTracking";
 
 // JSX type for Vturb's custom element (web component, no public type pkg).
 // Module augmentation already merged from /ads/sales; redeclaring locally
@@ -131,6 +132,8 @@ export default function FbSalesPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
+      <FbTracking />
+
       {/* Performance preloads + DNS prefetch — Next.js App Router /
           React auto-hoists these <link> elements into the document
           <head> so the browser can start fetching the Vturb player
