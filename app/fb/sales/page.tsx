@@ -1,24 +1,26 @@
 // =============================================================
-// Ads variant — Sales page (paid-traffic / Digistore checkout)
+// FB variant — Sales page (Facebook paid-traffic / Digistore)
 // -------------------------------------------------------------
-// Duplicate of /sales for the PAID-TRAFFIC funnel.
-// Pixel-for-pixel identical to the organic version in copy,
-// layout, mobile styling, VSL, all sections.
+// Mirror of /ads/sales for the FACEBOOK paid-traffic funnel.
+// Wired to the SAME Digistore product (688952 $29 course) as
+// /ads/sales, but ships WITHOUT any tracking scripts yet — no
+// TikTok pixel, no Utmify UTM tracker, no Microsoft Clarity. Add
+// FB pixel + analytics here when ready.
 //
-// Wired to Digistore product 688952 ($29 course). All 4 CTA
-// buttons open the Digistore checkout in a new tab.
+// HEADLINE BLOCK REMOVED on purpose (consistent with /ads/sales):
+// the AIM Method logo sits at top, VSL video starts right below
+// with mt-3 of breathing room — no badge, no big H1, no subhead.
 //
-// The original /sales stays wired to the organic / Hotmart
-// funnel and is NOT touched by this duplicate.
+// The original /sales (organic Hotmart) and /ads/sales (paid
+// Digistore + TikTok bundle) are NOT touched by this duplicate.
 // =============================================================
 
 "use client";
 import { useEffect, useRef } from "react";
-import { TikTokPixel } from "@/components/TikTokPixel";
 
 // JSX type for Vturb's custom element (web component, no public type pkg).
-// Replaces a previous `@ts-expect-error` comment that TS misreported as
-// unused — proper type declaration is the actual fix.
+// Module augmentation already merged from /ads/sales; redeclaring locally
+// keeps this file self-contained and avoids hidden cross-file coupling.
 declare module "react" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
@@ -59,12 +61,12 @@ const FAQS = [
   { q: "Is the content available in different languages?", a: "The course is in English. However, the methods work globally regardless of your location." },
 ];
 
-// Ads / Sales page — paid-traffic version of /sales.
-// Wired to Digistore product 688952 ($29 course).
+// FB / Sales page — Facebook paid-traffic version of /sales.
+// Wired to Digistore product 688952 ($29 course) — same as /ads/sales.
 const CHECKOUT_URL =
   "https://www.checkout-ds24.com/product/688952?aff=SpackReach2&hide_plans=";
 
-export default function AdsSalesPage() {
+export default function FbSalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const fixedBtnRef = useRef<HTMLDivElement>(null);
@@ -125,7 +127,6 @@ export default function AdsSalesPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
-      <TikTokPixel />
 
       {/* BANNER */}
       <div
@@ -144,9 +145,9 @@ export default function AdsSalesPage() {
         </span>
       </nav>
 
-      {/* VIDEO — sits right below the NAV (HERO headline block removed
-          intentionally for the paid funnel; mt-3 gives a small breathing
-          gap below the NAV border without leaving empty space). */}
+      {/* VIDEO — sits right below the NAV (no HERO headline block on the
+          FB/paid variants; mt-3 gives a small breathing gap below the NAV
+          border without leaving empty space). */}
       <div className="mx-4 mt-3 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
         <vturb-smartplayer
           id="vid-69e6749288365845bdfcd75c"
@@ -219,6 +220,7 @@ export default function AdsSalesPage() {
                 key={i}
                 className="flex-shrink-0 w-48 rounded-2xl overflow-hidden border border-white/5 bg-[#0d0d0d]"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={s.image}
                   alt={s.name}
@@ -319,6 +321,7 @@ export default function AdsSalesPage() {
         <div className="grid grid-cols-2 gap-3 px-5 mb-5">
           {MODELS.map((model) => (
             <div key={model.name} className="relative rounded-2xl overflow-hidden aspect-[3/4] border border-white/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={model.image} alt={model.name} className="w-full h-full object-cover" />
               <div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(0,0,0,0.92) 40%,transparent)" }} />
               <div className="absolute bottom-2 left-3 right-3">
