@@ -39,7 +39,7 @@ const STEP4_RESULTS_IMAGES: string[] = [
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/93F3E47E-AF60-4CC7-BC7A-D4740F81D5DA.jpg",
 ];
 const STEP5_IMAGE_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_6013.PNG";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_00182.PNG";
 // ───────────────────────────────────────────────────────────
 
 function ImagePlaceholder({
@@ -173,12 +173,29 @@ function TestimonialsCarousel({ images }: { images: string[] }) {
         className="carousel-track flex items-start overflow-x-auto snap-x snap-mandatory scroll-smooth"
       >
         {images.map((url, i) => (
-          <div key={i} className="snap-center flex-shrink-0 w-full">
-            <ImagePlaceholder
-              url={url}
-              alt={`Student result ${i + 1}`}
-              aspectClass="aspect-[4/5]"
-            />
+          <div
+            key={i}
+            className="snap-center flex-shrink-0 w-full flex items-start justify-center"
+          >
+            {url ? (
+              // Inline <img> with max-h cap so testimonials at varying
+              // natural ratios don't blow up the carousel height. Image
+              // stays whole (no crop, no letterbox) and centers in the
+              // slide. Swipe + dot indicators still work — each slide
+              // is full-width regardless of its image's rendered width.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={url}
+                alt={`Student result ${i + 1}`}
+                className="block max-h-[260px] max-w-full w-auto h-auto rounded-2xl border border-purple-900/30"
+              />
+            ) : (
+              <ImagePlaceholder
+                url=""
+                alt={`Student result ${i + 1}`}
+                aspectClass="aspect-[4/5]"
+              />
+            )}
           </div>
         ))}
       </div>
@@ -227,8 +244,7 @@ function Step1({ onContinue }: { onContinue: () => void }) {
   return (
     <>
       <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight text-center mb-5">
-        Make <span className="text-green-400">$200 to $500</span> a day with
-        ultra-realistic AI models
+        Make <span className="text-green-400">$200 to $500</span> a day
       </h1>
       <ImagePlaceholder url={STEP1_IMAGE_URL} alt="AI model showcase" />
       <p className="text-sm sm:text-base text-gray-300 leading-relaxed text-center mt-5">
@@ -243,32 +259,43 @@ function Step1({ onContinue }: { onContinue: () => void }) {
 function Step2({ onContinue }: { onContinue: () => void }) {
   return (
     <>
-      <h1 className="text-lg sm:text-xl font-black text-white leading-tight text-center mb-3">
+      <h1 className="text-base sm:text-lg font-black text-white leading-tight text-center mb-2">
         In a moment, I&apos;ll show you how to build your own model in under{" "}
         <span className="text-purple-400">30 minutes</span> with simple, free
         tools.
       </h1>
-      {/* Two images side-by-side. items-start so each image keeps its
-          own natural height (no stretch to match the taller sibling). */}
+      {/* Two images side-by-side. Inline <img> with max-h cap + max-w-full
+          so each image renders at natural aspect (no crop, no letterbox)
+          but won't dominate vertical space. items-start prevents stretch. */}
       <div className="grid grid-cols-2 gap-2 items-start">
-        <ImagePlaceholder
-          url={STEP2_PROFILE_IMAGE_URL}
-          alt="Example AI profile"
-          aspectClass="aspect-[3/4]"
-        />
-        <ImagePlaceholder
-          url={STEP2_EARNINGS_IMAGE_URL}
-          alt="Earnings proof"
-          aspectClass="aspect-[3/4]"
-        />
+        {STEP2_PROFILE_IMAGE_URL ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={STEP2_PROFILE_IMAGE_URL}
+            alt="Example AI profile"
+            className="block max-h-[180px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+          />
+        ) : (
+          <ImagePlaceholder url="" alt="Example AI profile" aspectClass="aspect-[3/4]" />
+        )}
+        {STEP2_EARNINGS_IMAGE_URL ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={STEP2_EARNINGS_IMAGE_URL}
+            alt="Earnings proof"
+            className="block max-h-[180px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+          />
+        ) : (
+          <ImagePlaceholder url="" alt="Earnings proof" aspectClass="aspect-[3/4]" />
+        )}
       </div>
-      <p className="text-[13px] sm:text-sm text-gray-300 leading-snug text-center mt-3">
+      <p className="text-[12px] sm:text-[13px] text-gray-300 leading-snug text-center mt-2">
         This profile was built 100% with AI. Less than 30 days old, and it&apos;s
         already pulled in over{" "}
         <span className="text-green-400 font-bold">$10,000</span> and gained{" "}
         <span className="text-purple-400 font-bold">14k followers</span>.
       </p>
-      <p className="text-[13px] sm:text-sm text-gray-400 leading-snug text-center mt-2">
+      <p className="text-[12px] sm:text-[13px] text-gray-400 leading-snug text-center mt-1">
         On the next page I&apos;ll show you a new tool — but you&apos;ve gotta
         use it responsibly, deal? 👀
       </p>
@@ -294,13 +321,13 @@ function Step3({ onContinue }: { onContinue: () => void }) {
 function Step4({ onContinue }: { onContinue: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-3">
+      <h1 className="text-lg sm:text-xl font-black text-white leading-tight text-center mb-2">
         This is the <span className="text-green-400">laziest way</span> to make{" "}
         <span className="text-green-400">$200 to $500</span> a day — even if
         you know nothing about AI, even if you&apos;ve never worked online
         before.
       </h1>
-      <p className="text-sm sm:text-base text-gray-300 leading-relaxed text-center mb-5">
+      <p className="text-[13px] sm:text-sm text-gray-300 leading-snug text-center mb-3">
         Take a look at the results some of my students are getting:
       </p>
       <TestimonialsCarousel images={STEP4_RESULTS_IMAGES} />
@@ -312,13 +339,25 @@ function Step4({ onContinue }: { onContinue: () => void }) {
 function Step5({ onContinue }: { onContinue: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
-        Now I&apos;m gonna show you the{" "}
-        <span className="text-purple-400">full step-by-step</span> of how to
-        create your AI model and start making{" "}
-        <span className="text-green-400">$300 to $500</span> a day.
+      <h1 className="text-lg sm:text-xl font-black text-white leading-tight text-center mb-3">
+        Now I&apos;m gonna show you how to{" "}
+        <span className="text-purple-400">get your AI model for free</span> and
+        start making <span className="text-green-400">$200 to $500</span> a day.
       </h1>
-      <ImagePlaceholder url={STEP5_IMAGE_URL} alt="Class preview" />
+      {STEP5_IMAGE_URL ? (
+        // Inline <img> with max-h cap + w-auto so the image stays whole at
+        // its natural aspect (no crop, no letterbox bars) but doesn't
+        // dominate the screen. Centered so the Continue button stays
+        // visible without scrolling on a typical mobile.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={STEP5_IMAGE_URL}
+          alt="Class preview"
+          className="block max-h-[35vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+        />
+      ) : (
+        <ImagePlaceholder url="" alt="Class preview" />
+      )}
       <ContinueButton label="I want to access the class" onClick={onContinue} />
     </>
   );
@@ -363,16 +402,8 @@ export default function AdsQuizPage() {
         </div>
       </div>
 
-      {/* NAV */}
-      <nav className="flex items-center justify-center py-3 border-b border-white/5">
-        <span className="text-lg font-black tracking-tight">
-          <span className="text-white">AIM </span>
-          <span className="text-purple-400">Method</span>
-        </span>
-      </nav>
-
       {/* STEP CONTENT — key on step forces re-mount → fadeIn animation re-runs */}
-      <main className="flex-1 px-5 py-8 sm:py-12">
+      <main className="flex-1 px-5 py-4 sm:py-10">
         <div
           key={step}
           className="max-w-2xl mx-auto"
