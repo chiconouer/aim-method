@@ -88,9 +88,13 @@ export default function FbSalesPage() {
   }
 
   useEffect(() => {
-    // Load Vturb script
+    // Load Vturb script — FB-funnel-specific player (separate retention
+    // + analytics from /ads/sales's TikTok player). The preload hint
+    // below the root <div> primes the browser to fetch this URL before
+    // useEffect even runs, so by the time we inject the <script> tag
+    // here the bytes are usually already cached.
     const s = document.createElement("script");
-    s.src = "https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/69e6749288365845bdfcd75c/v4/player.js";
+    s.src = "https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a299481f97bdf6759cad9e2/v4/player.js";
     s.async = true;
     document.head.appendChild(s);
 
@@ -127,6 +131,31 @@ export default function FbSalesPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
+      {/* Performance preloads + DNS prefetch — Next.js App Router /
+          React auto-hoists these <link> elements into the document
+          <head> so the browser can start fetching the Vturb player
+          assets in parallel with the rest of the page parse. Same
+          domains the player ends up calling anyway; this just kicks
+          the requests off earlier. */}
+      <link
+        rel="preload"
+        as="script"
+        href="https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a299481f97bdf6759cad9e2/v4/player.js"
+      />
+      <link
+        rel="preload"
+        as="script"
+        href="https://scripts.converteai.net/lib/js/smartplayer-wc/v4/smartplayer.js"
+      />
+      <link
+        rel="preload"
+        as="fetch"
+        href="https://cdn.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/69e6740ad9a2e678cbc93155/main.m3u8"
+      />
+      <link rel="dns-prefetch" href="https://cdn.converteai.net" />
+      <link rel="dns-prefetch" href="https://scripts.converteai.net" />
+      <link rel="dns-prefetch" href="https://images.converteai.net" />
+      <link rel="dns-prefetch" href="https://license.vturb.com" />
 
       {/* BANNER */}
       <div
@@ -147,11 +176,13 @@ export default function FbSalesPage() {
 
       {/* VIDEO — sits right below the NAV (no HERO headline block on the
           FB/paid variants; mt-3 gives a small breathing gap below the NAV
-          border without leaving empty space). */}
+          border without leaving empty space). Player caps at 400px wide
+          and centers via margin auto — the wrapper still shows the purple
+          glow border for any leftover horizontal space on wider screens. */}
       <div className="mx-4 mt-3 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
         <vturb-smartplayer
-          id="vid-69e6749288365845bdfcd75c"
-          style={{ display: "block", width: "100%" }}
+          id="vid-6a299481f97bdf6759cad9e2"
+          style={{ display: "block", margin: "0 auto", width: "100%", maxWidth: "400px" }}
         />
       </div>
 
