@@ -282,7 +282,7 @@ function Step2({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP2_PROFILE_IMAGE_URL}
             alt="Example AI profile"
-            className="block max-h-[220px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+            className="block max-h-[280px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
           <ImagePlaceholder url="" alt="Example AI profile" aspectClass="aspect-[3/4]" />
@@ -292,7 +292,7 @@ function Step2({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP2_EARNINGS_IMAGE_URL}
             alt="Earnings proof"
-            className="block max-h-[220px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+            className="block max-h-[280px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
           <ImagePlaceholder url="" alt="Earnings proof" aspectClass="aspect-[3/4]" />
