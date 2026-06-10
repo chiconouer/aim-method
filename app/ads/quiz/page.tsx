@@ -212,6 +212,9 @@ function TestimonialsCarousel({ images }: { images: string[] }) {
           />
         ))}
       </div>
+      <p className="text-[11px] text-gray-500 text-center mt-2 tracking-wide">
+        ← Swipe to see more →
+      </p>
     </div>
   );
 }
@@ -244,7 +247,8 @@ function Step1({ onContinue }: { onContinue: () => void }) {
   return (
     <>
       <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight text-center mb-5">
-        Make <span className="text-green-400">$200 to $500</span> a day
+        Make <span className="text-green-400">$200 to $500</span> a day with an
+        AI Model
       </h1>
       {STEP1_IMAGE_URL ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -420,10 +424,11 @@ export default function AdsQuizPage() {
       </div>
 
       {/* STEP CONTENT — key on step forces re-mount → fadeIn animation re-runs.
-          flex column + justify-center vertically centers the step content within
-          the available viewport, so headline + media + CTA sit nicely centered
-          instead of sticking to the top with empty space below. */}
-      <main className="flex-1 flex flex-col items-center justify-center px-5 py-4 sm:py-6">
+          flex column + justify-center with asymmetric padding (pt < pb) shifts
+          the centered content slightly upward, so it doesn't leave a giant
+          empty gap between the logo and the headline. The bigger pb still
+          gives breathing room at the bottom. */}
+      <main className="flex-1 flex flex-col items-center justify-center px-5 pt-4 pb-16 sm:pt-6 sm:pb-20">
         <div
           key={step}
           className="w-full max-w-2xl"
