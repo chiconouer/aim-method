@@ -107,7 +107,7 @@ function VideoPlaceholder({ url }: { url: string }) {
           loop
           playsInline
           controls
-          className="block w-full h-auto rounded-2xl border border-purple-900/30 bg-black"
+          className="block max-h-[50vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30 bg-black"
         />
         {showSoundOverlay && (
           <button
@@ -187,7 +187,7 @@ function TestimonialsCarousel({ images }: { images: string[] }) {
               <img
                 src={url}
                 alt={`Student result ${i + 1}`}
-                className="block max-h-[260px] max-w-full w-auto h-auto rounded-2xl border border-purple-900/30"
+                className="block max-h-[300px] max-w-full w-auto h-auto rounded-2xl border border-purple-900/30"
               />
             ) : (
               <ImagePlaceholder
@@ -246,7 +246,16 @@ function Step1({ onContinue }: { onContinue: () => void }) {
       <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight text-center mb-5">
         Make <span className="text-green-400">$200 to $500</span> a day
       </h1>
-      <ImagePlaceholder url={STEP1_IMAGE_URL} alt="AI model showcase" />
+      {STEP1_IMAGE_URL ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={STEP1_IMAGE_URL}
+          alt="AI model showcase"
+          className="block max-h-[40vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+        />
+      ) : (
+        <ImagePlaceholder url="" alt="AI model showcase" />
+      )}
       <p className="text-sm sm:text-base text-gray-300 leading-relaxed text-center mt-5">
         You only need about 2 hours a day to pull in{" "}
         <span className="text-green-400 font-bold">$200–$500</span>.
@@ -273,7 +282,7 @@ function Step2({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP2_PROFILE_IMAGE_URL}
             alt="Example AI profile"
-            className="block max-h-[180px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+            className="block max-h-[220px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
           <ImagePlaceholder url="" alt="Example AI profile" aspectClass="aspect-[3/4]" />
@@ -283,7 +292,7 @@ function Step2({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP2_EARNINGS_IMAGE_URL}
             alt="Earnings proof"
-            className="block max-h-[180px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+            className="block max-h-[220px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
           <ImagePlaceholder url="" alt="Earnings proof" aspectClass="aspect-[3/4]" />
@@ -353,7 +362,7 @@ function Step5({ onContinue }: { onContinue: () => void }) {
         <img
           src={STEP5_IMAGE_URL}
           alt="Class preview"
-          className="block max-h-[35vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+          className="block max-h-[42vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
         />
       ) : (
         <ImagePlaceholder url="" alt="Class preview" />
@@ -402,11 +411,22 @@ export default function AdsQuizPage() {
         </div>
       </div>
 
-      {/* STEP CONTENT — key on step forces re-mount → fadeIn animation re-runs */}
-      <main className="flex-1 px-5 py-4 sm:py-10">
+      {/* Compact logo header — ~28px, just enough for branding */}
+      <div className="flex items-center justify-center py-2 border-b border-white/5">
+        <span className="text-sm font-black tracking-tight">
+          <span className="text-white">AIM </span>
+          <span className="text-purple-400">Method</span>
+        </span>
+      </div>
+
+      {/* STEP CONTENT — key on step forces re-mount → fadeIn animation re-runs.
+          flex column + justify-center vertically centers the step content within
+          the available viewport, so headline + media + CTA sit nicely centered
+          instead of sticking to the top with empty space below. */}
+      <main className="flex-1 flex flex-col items-center justify-center px-5 py-4 sm:py-6">
         <div
           key={step}
-          className="max-w-2xl mx-auto"
+          className="w-full max-w-2xl"
           style={{ animation: "stepFadeIn 0.45s ease-out" }}
         >
           {step === 1 && <Step1 onContinue={next} />}
