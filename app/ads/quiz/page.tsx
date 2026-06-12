@@ -15,9 +15,20 @@
 
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TikTokPixel } from "@/components/TikTokPixel";
+
+// Microsoft Clarity exposes window.clarity as a function once the
+// tag script (loaded by <TikTokPixel />) has hydrated. Optional
+// chaining at every call site (`window.clarity?.(...)`) means a
+// pre-hydration or blocked-by-extension scenario is a silent no-op
+// rather than an error.
+declare global {
+  interface Window {
+    clarity?: (action: string, ...args: unknown[]) => void;
+  }
+}
 
 const TOTAL_STEPS = 5;
 
@@ -380,11 +391,34 @@ export default function AdsQuizPage() {
   const [step, setStep] = useState(1);
   const router = useRouter();
 
+  // "Reached step N" — fires whenever the visible step changes,
+  // including the initial mount (step=1). Combined with the
+  // *_advanced events below, this gives a full view→click funnel
+  // per step in Clarity, scoped to the TikTok funnel via the tt_ prefix.
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.clarity?.("event", `tt_quiz_step_${step}_viewed`);
+    }
+  }, [step]);
+
   function next() {
-    if (step < TOTAL_STEPS) setStep(step + 1);
+    if (step < TOTAL_STEPS) {
+      // "Advanced from step N" — fired BEFORE setStep so the event
+      // carries the step the user is leaving, not the one they land on.
+      if (typeof window !== "undefined") {
+        window.clarity?.("event", `tt_quiz_step_${step}_advanced`);
+      }
+      setStep(step + 1);
+    }
   }
 
   function goToSales() {
+    // Final completion — fired BEFORE router.push so it's guaranteed
+    // to land in the same Clarity session as the quiz steps (the next
+    // page mounts its own session).
+    if (typeof window !== "undefined") {
+      window.clarity?.("event", "tt_quiz_step_5_completed");
+    }
     // Client-side nav into the VSL page. /ads/sales mounts its own
     // Vturb script via useEffect, so SPA navigation works fine.
     router.push("/ads/sales");
