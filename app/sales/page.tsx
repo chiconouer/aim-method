@@ -124,26 +124,11 @@ export default function SalesPage() {
         </span>
       </nav>
 
-      {/* HERO */}
-      <div className="text-center px-5 pt-5 pb-3">
-        <span className="inline-block mb-2 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase bg-purple-900/10 border border-purple-700/20 text-purple-400">
-          Free Video Reveals
-        </span>
-        <h1 className="text-2xl font-black text-white leading-tight tracking-tight mb-2">
-          How I Create AI Models<br />
-          Generating{" "}
-          <span
-            className="text-transparent bg-clip-text"
-            style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#e9d5ff,#a78bfa)", backgroundSize: "200%", animation: "shimmer 3s linear infinite" }}
-          >
-            $10,000+/Month
-          </span>
-        </h1>
-        <p className="text-[11px] text-gray-500 leading-relaxed">No face. No followers. No experience needed.</p>
-      </div>
-
-      {/* VIDEO */}
-      <div className="mx-4 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
+      {/* VIDEO — sits right below the NAV (HERO headline block removed
+          intentionally to match /ads/sales and /fb/sales; mt-3 gives a
+          small breathing gap below the NAV border without leaving empty
+          space). */}
+      <div className="mx-4 mt-3 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
         <vturb-smartplayer
           id="vid-69e6749288365845bdfcd75c"
           style={{ display: "block", width: "100%" }}
