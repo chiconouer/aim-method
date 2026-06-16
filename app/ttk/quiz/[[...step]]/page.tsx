@@ -2,10 +2,10 @@
 // TikTok variant — Pre-VSL Quiz funnel (paid-traffic warm-up)
 // -------------------------------------------------------------
 // FIRST page of the TikTok paid funnel. 8-step linear persuasion
-// sequence with a progress bar — first 3 steps are scripted
-// "guess the real woman" interactions (always wrong/correct/wrong
-// regardless of which image is tapped), final 5 steps are the
-// original persuasion sequence.
+// sequence with a progress bar. Steps 1-3 are scripted "real vs
+// A.I." interactions (the answer is fixed, the buttons/tiles only
+// look interactive). Steps 4-8 are the original persuasion
+// sequence.
 //
 // Goal: warm up cold ad traffic before dumping them into the VSL
 // at /ttk/sales. Step 8's CTA navigates to /ttk/sales.
@@ -40,20 +40,17 @@ declare global {
 
 const TOTAL_STEPS = 8;
 
-// ───── INTRO STEPS (1-3): "guess the real woman" placeholder slots ─────
-// Replace each empty string with a real image URL. While empty, the tile
-// renders a labeled placeholder so the page is usable end-to-end.
-// Step 1 is SCRIPTED WRONG, Step 2 SCRIPTED CORRECT, Step 3 SCRIPTED WRONG —
-// the result has nothing to do with which image was tapped.
-const INTRO1_IMG_A = "";
-const INTRO1_IMG_B = "";
-const INTRO1_IMG_C = "";
+// ───── INTRO STEPS (1-3): "real vs A.I." placeholder slots ─────
+// Step 1 shows ONE image + Real / A.I. buttons. The image is meant
+// to be A.I.-generated, so tapping "A.I." is "correct" and "Real"
+// is "wrong" — both branches are wired regardless of the asset.
+// Steps 2 & 3 show TWO tiles each; tapping either tile in step 2
+// is always "correct", in step 3 always "wrong".
+const INTRO1_IMG = "";
 const INTRO2_IMG_A = "";
 const INTRO2_IMG_B = "";
-const INTRO2_IMG_C = "";
 const INTRO3_IMG_A = "";
 const INTRO3_IMG_B = "";
-const INTRO3_IMG_C = "";
 
 // ───── MAIN STEPS (4-8): paste media URLs as they become available ─────
 const STEP4_IMAGE_URL =
@@ -76,14 +73,40 @@ const STEP8_IMAGE_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_00182.PNG";
 // ───────────────────────────────────────────────────────────
 
+// Every image URL referenced anywhere in the funnel, in one place.
+// Used by the eager preloader inside TtkQuizPage — filters empties
+// out at runtime so unset placeholders don't fire HEAD requests for
+// the empty string.
+const ALL_STEP_IMAGES: string[] = [
+  INTRO1_IMG,
+  INTRO2_IMG_A,
+  INTRO2_IMG_B,
+  INTRO3_IMG_A,
+  INTRO3_IMG_B,
+  STEP4_IMAGE_URL,
+  STEP5_PROFILE_IMAGE_URL,
+  STEP5_EARNINGS_IMAGE_URL,
+  STEP8_IMAGE_URL,
+  ...STEP7_RESULTS_IMAGES,
+];
+
 // =============================================================
-// Money sound — synthesized via Web Audio API. No audio file is
-// loaded or shipped. AudioContext is lazily constructed on the
-// first invocation (which is always inside a user-gesture handler,
-// so autoplay policies don't reject it) and reused after that.
-// Every public call is wrapped in try/catch so a blocked context,
-// an unsupported browser, or a suspended page silently no-ops
-// instead of throwing into the React tree.
+// Money sound — synthesized cash-register "cha-ching" via Web
+// Audio API. No audio file is loaded or shipped.
+//
+// Why it sounds metallic instead of bell-y: each percussive hit
+// stacks multiple SQUARE-wave oscillators at non-harmonic
+// frequencies (e.g. 3200 + 4400 Hz, ratio ≠ 2:1). Square waves
+// carry odd harmonics, the non-harmonic stacking adds
+// inharmonicity, and that combo reads as "coin/metal" to the
+// ear instead of "bell". A short noise burst at t=0 fakes the
+// drawer-slide "ka" before the bell tail.
+//
+// AudioContext is lazily constructed on first call (which always
+// happens inside a user-gesture handler, so autoplay policies
+// allow it) and reused after. Every public call is wrapped in
+// try/catch so blocked / unsupported / suspended contexts
+// silently no-op instead of throwing into the React tree.
 // =============================================================
 let audioCtxRef: AudioContext | null = null;
 
@@ -110,26 +133,62 @@ function ensureAudioCtx(): AudioContext | null {
   }
 }
 
-function playCoinTone(
+// Short noise burst — used for the "ka" of "cha-CHING" so the
+// drawer-slide character is in there. Filter steeply lowpassed
+// so it reads as a thud, not white-noise hiss.
+function playNoiseBurst(
   ctx: AudioContext,
   startTime: number,
-  freq: number,
   duration: number,
   peak: number,
 ): void {
-  const osc = ctx.createOscillator();
+  const sampleCount = Math.floor(ctx.sampleRate * duration);
+  const buffer = ctx.createBuffer(1, sampleCount, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < sampleCount; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 1200;
+  filter.Q.value = 0.6;
   const gain = ctx.createGain();
-  osc.type = "triangle";
-  osc.frequency.value = freq;
-  // ADSR: ~5ms attack, exponential decay to silence. Triangle wave
-  // + exponential ramps gives a bright "ping" without a harsh edge.
   gain.gain.setValueAtTime(0.0001, startTime);
-  gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.005);
+  gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.003);
   gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-  osc.connect(gain);
+  source.connect(filter);
+  filter.connect(gain);
   gain.connect(ctx.destination);
-  osc.start(startTime);
-  osc.stop(startTime + duration + 0.02);
+  source.start(startTime);
+  source.stop(startTime + duration + 0.02);
+}
+
+// Stack of square-wave oscillators at the given inharmonic freqs.
+// All start at the same time; one shared gain envelope = a single
+// percussive "clink". The non-harmonic stacking is what makes it
+// sound like metal hitting metal instead of a tuning fork.
+function playMetallicClink(
+  ctx: AudioContext,
+  startTime: number,
+  freqs: number[],
+  duration: number,
+  peak: number,
+): void {
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(peak, startTime + 0.003);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  gain.connect(ctx.destination);
+  for (const freq of freqs) {
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    osc.start(startTime);
+    osc.stop(startTime + duration + 0.02);
+  }
 }
 
 function playMoneySound(): void {
@@ -137,10 +196,20 @@ function playMoneySound(): void {
     const ctx = ensureAudioCtx();
     if (!ctx) return;
     const t0 = ctx.currentTime;
-    // Cash-register ping: E6 → A6 → E7 sparkle stacked 70ms apart.
-    playCoinTone(ctx, t0, 1318.5, 0.13, 0.28); // E6
-    playCoinTone(ctx, t0 + 0.07, 1760.0, 0.13, 0.24); // A6
-    playCoinTone(ctx, t0 + 0.14, 2637.0, 0.18, 0.18); // E7 sparkle
+
+    // 1. "ka" — short filtered noise burst, register drawer slide.
+    playNoiseBurst(ctx, t0, 0.04, 0.18);
+
+    // 2. First coin clink, slightly delayed — "cha"
+    playMetallicClink(ctx, t0 + 0.02, [3200, 4400], 0.09, 0.09);
+
+    // 3. Second coin clink, higher — "ching" attack
+    playMetallicClink(ctx, t0 + 0.1, [3800, 5200], 0.08, 0.085);
+
+    // 4. Bell-tail ring — longer decay, three inharmonic partials.
+    //    This is what carries the "money is mine" sustain after
+    //    the percussive clinks.
+    playMetallicClink(ctx, t0 + 0.18, [2200, 2987, 4400], 0.4, 0.075);
   } catch {
     // Silent no-op — audio must never block the popup UX.
   }
@@ -347,10 +416,44 @@ function ContinueButton({
   );
 }
 
-// Tappable 3-image row used by intro steps 1-3. ANY tap calls onPick.
-// The scripted "is this the right answer" decision happens in the
-// parent — this component is dumb on purpose.
-function IntroGuessRow({
+// Generic single-tile renderer used by Step 1 (one image above the
+// Real/A.I. buttons). Keeps the aspect ratio capped so the tile
+// stays tall enough to feel like a portrait without overflowing
+// the screen on small viewports.
+function IntroSingleTile({
+  url,
+  placeholderLabel,
+}: {
+  url: string;
+  placeholderLabel: string;
+}) {
+  if (url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt="Real or A.I.?"
+        className="block max-h-[55vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+      />
+    );
+  }
+  return (
+    <div
+      className="w-full max-w-sm mx-auto aspect-[3/4] rounded-2xl border border-purple-900/30 flex items-center justify-center bg-[#0d0d0d]"
+      style={{ boxShadow: "0 0 20px rgba(124,58,237,0.08)" }}
+    >
+      <span className="text-[10px] uppercase tracking-widest text-purple-700 font-bold">
+        {placeholderLabel}
+      </span>
+    </div>
+  );
+}
+
+// Two-tile guess row used by intro steps 2 and 3. Tiles fill more
+// horizontal space than the previous 3-up grid, so each face reads
+// clearly on mobile. ANY tap calls onPick — the "right/wrong"
+// decision is made in the parent.
+function IntroTwoTileRow({
   images,
   onPick,
 }: {
@@ -358,7 +461,7 @@ function IntroGuessRow({
   onPick: () => void;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-4">
       {images.map((img, i) => (
         <button
           key={i}
@@ -376,7 +479,7 @@ function IntroGuessRow({
               className="block w-full h-full object-cover"
             />
           ) : (
-            <span className="flex w-full h-full items-center justify-center text-[9px] uppercase tracking-widest text-purple-700 font-bold text-center px-1">
+            <span className="flex w-full h-full items-center justify-center text-[11px] uppercase tracking-widest text-purple-700 font-bold text-center px-1">
               {img.placeholderLabel}
             </span>
           )}
@@ -428,9 +531,7 @@ function GuessPopup({
           {isCorrect ? "Correct!" : "Wrong — she's A.I."}
         </h2>
         <p className="text-sm text-gray-400 mb-2">
-          {isCorrect
-            ? "Real one spotted. Nice eye 👁️"
-            : "All three were AI-generated 🤖"}
+          {isCorrect ? "Nice eye 👁️" : "AI is hard to spot 🤖"}
         </p>
         <ContinueButton label="Continue →" onClick={onContinue} />
       </div>
@@ -438,24 +539,39 @@ function GuessPopup({
   );
 }
 
-function Step1({ onPick }: { onPick: () => void }) {
+// Step 1 — single image, Real / A.I. buttons. Tap "Real" → wrong,
+// tap "A.I." → correct. The image itself is scripted to be A.I.
+function Step1({
+  onReal,
+  onAi,
+}: {
+  onReal: () => void;
+  onAi: () => void;
+}) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-4">
-        To unlock the method, answer: which of these images is a{" "}
-        <span className="text-green-400">real woman</span>?
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+        To unlock the method, answer: is she{" "}
+        <span className="text-green-400">real</span> or{" "}
+        <span className="text-purple-400">A.I.</span>?
       </h1>
-      <IntroGuessRow
-        images={[
-          { url: INTRO1_IMG_A, placeholderLabel: "INTRO1 A" },
-          { url: INTRO1_IMG_B, placeholderLabel: "INTRO1 B" },
-          { url: INTRO1_IMG_C, placeholderLabel: "INTRO1 C" },
-        ]}
-        onPick={onPick}
-      />
-      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-3">
-        Tap a photo to lock in your answer.
-      </p>
+      <IntroSingleTile url={INTRO1_IMG} placeholderLabel="INTRO1" />
+      <div className="grid grid-cols-2 gap-3 mt-5">
+        <button
+          type="button"
+          onClick={onReal}
+          className="text-white text-base sm:text-lg font-black py-4 rounded-2xl border border-purple-700/40 bg-[#0d0a1a] hover:bg-[#13102a] focus:outline-none focus-visible:border-purple-400 transition-colors active:scale-[0.98]"
+        >
+          Real
+        </button>
+        <button
+          type="button"
+          onClick={onAi}
+          className="text-white text-base sm:text-lg font-black py-4 rounded-2xl border border-purple-700/40 bg-[#0d0a1a] hover:bg-[#13102a] focus:outline-none focus-visible:border-purple-400 transition-colors active:scale-[0.98]"
+        >
+          A.I.
+        </button>
+      </div>
     </>
   );
 }
@@ -463,19 +579,18 @@ function Step1({ onPick }: { onPick: () => void }) {
 function Step2({ onPick }: { onPick: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-4">
-        Which of these 3 images is a{" "}
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+        Which of these is a{" "}
         <span className="text-green-400">real woman</span>?
       </h1>
-      <IntroGuessRow
+      <IntroTwoTileRow
         images={[
           { url: INTRO2_IMG_A, placeholderLabel: "INTRO2 A" },
           { url: INTRO2_IMG_B, placeholderLabel: "INTRO2 B" },
-          { url: INTRO2_IMG_C, placeholderLabel: "INTRO2 C" },
         ]}
         onPick={onPick}
       />
-      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-3">
+      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-4">
         Tap a photo to lock in your answer.
       </p>
     </>
@@ -485,19 +600,18 @@ function Step2({ onPick }: { onPick: () => void }) {
 function Step3({ onPick }: { onPick: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-4">
-        Which of these 3 images is a{" "}
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+        Which of these is a{" "}
         <span className="text-green-400">real woman</span>?
       </h1>
-      <IntroGuessRow
+      <IntroTwoTileRow
         images={[
           { url: INTRO3_IMG_A, placeholderLabel: "INTRO3 A" },
           { url: INTRO3_IMG_B, placeholderLabel: "INTRO3 B" },
-          { url: INTRO3_IMG_C, placeholderLabel: "INTRO3 C" },
         ]}
         onPick={onPick}
       />
-      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-3">
+      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-4">
         Tap a photo to lock in your answer.
       </p>
     </>
@@ -656,6 +770,32 @@ export default function TtkQuizPage({
   const [popup, setPopup] = useState<PopupKind | null>(null);
   const router = useRouter();
 
+  // EAGER IMAGE PRELOAD. Without this, each step image only started
+  // fetching when its step rendered for the first time. The Step 4
+  // PNG is ~1 MB and Supabase Storage serves Cache-Control: no-cache
+  // (every request revalidates), so the user used to stare at an
+  // empty placeholder for a full second after tapping into step 4.
+  //
+  // Creating a detached Image() object kicks off a background fetch
+  // at mount, so by the time the user reaches that step the bytes
+  // are already cached. no-cache still forces a revalidation
+  // round-trip, but the body is served from disk cache as 304 —
+  // much faster than the original 1 MB download. We run this once
+  // (empty deps), filter empties, and don't track completion since
+  // failures should just degrade to the original behavior silently.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    for (const url of ALL_STEP_IMAGES) {
+      if (!url) continue;
+      try {
+        const img = new Image();
+        img.src = url;
+      } catch {
+        // Should never throw, but if some exotic env does, just skip.
+      }
+    }
+  }, []);
+
   // "Reached step N" — fires whenever the visible step changes,
   // including the initial mount (step=1). Combined with the
   // *_advanced events below, this gives a full view→click funnel
@@ -740,18 +880,22 @@ export default function TtkQuizPage({
         </span>
       </div>
 
-      {/* STEP CONTENT — key on step forces re-mount → fadeIn animation re-runs.
-          flex column + justify-center with asymmetric padding (pt < pb) shifts
-          the centered content slightly upward, so it doesn't leave a giant
-          empty gap between the logo and the headline. The bigger pb still
-          gives breathing room at the bottom. */}
-      <main className="flex-1 flex flex-col items-center justify-center px-5 pt-4 pb-16 sm:pt-6 sm:pb-20">
+      {/* STEP CONTENT — top-aligned so light intro steps don't float in
+          the middle of the viewport. Wider pb keeps a comfortable cushion
+          below the last button. key={step} forces re-mount per step so
+          the fadeIn animation re-runs on every transition. */}
+      <main className="flex-1 flex flex-col items-center px-5 pt-5 pb-16 sm:pt-7 sm:pb-20">
         <div
           key={step}
           className="w-full max-w-2xl"
           style={{ animation: "stepFadeIn 0.45s ease-out" }}
         >
-          {step === 1 && <Step1 onPick={() => showPopup("wrong")} />}
+          {step === 1 && (
+            <Step1
+              onReal={() => showPopup("wrong")}
+              onAi={() => showPopup("correct")}
+            />
+          )}
           {step === 2 && <Step2 onPick={() => showPopup("correct")} />}
           {step === 3 && <Step3 onPick={() => showPopup("wrong")} />}
           {step === 4 && <Step4 onContinue={next} />}
