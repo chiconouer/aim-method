@@ -449,10 +449,18 @@ function IntroSingleTile({
   );
 }
 
-// Two-tile guess row used by intro steps 2 and 3. Tiles fill more
-// horizontal space than the previous 3-up grid, so each face reads
-// clearly on mobile. ANY tap calls onPick — the "right/wrong"
-// decision is made in the parent.
+// Two-tile guess row used by intro steps 2 and 3. Mirrors the
+// visual treatment of Step 5's two-image grid (Instagram profile +
+// earnings screenshots): inline <img> tags with natural aspect,
+// capped at max-h-[280px], centered in their grid cell via mx-auto.
+// `items-start` keeps tiles top-aligned when their natural heights
+// differ. ANY tap calls onPick — the right/wrong decision is made
+// in the parent (so this component stays asset-agnostic).
+//
+// Tappable affordance: the 2px purple border on the image is the
+// primary "this is clickable" cue. group-hover and group-focus
+// brighten it to purple-300 on devices that hover. `active:scale`
+// provides press feedback on mobile.
 function IntroTwoTileRow({
   images,
   onPick,
@@ -461,27 +469,35 @@ function IntroTwoTileRow({
   onPick: () => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-3 items-start">
       {images.map((img, i) => (
         <button
           key={i}
           type="button"
           onClick={onPick}
           aria-label={`Pick option ${String.fromCharCode(65 + i)}`}
-          className="block aspect-[3/4] rounded-2xl overflow-hidden border border-purple-900/30 bg-[#0d0d0d] focus:outline-none focus-visible:border-purple-400 transition-transform active:scale-[0.97]"
-          style={{ boxShadow: "0 0 16px rgba(124,58,237,0.08)" }}
+          className="group block focus:outline-none active:scale-[0.97] transition-transform cursor-pointer"
         >
           {img.url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={img.url}
               alt={`Option ${String.fromCharCode(65 + i)}`}
-              className="block w-full h-full object-cover"
+              className="block max-h-[280px] max-w-full w-auto h-auto mx-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors"
             />
           ) : (
-            <span className="flex w-full h-full items-center justify-center text-[11px] uppercase tracking-widest text-purple-700 font-bold text-center px-1">
-              {img.placeholderLabel}
-            </span>
+            // Empty-URL placeholder — same border treatment as a real
+            // image so the tap cue still reads while the funnel is
+            // mid-build. Aspect-[3/4] gives the box a portrait shape
+            // that roughly matches what a real headshot will render at.
+            <div
+              className="w-full aspect-[3/4] rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors flex items-center justify-center bg-[#0d0d0d]"
+              style={{ boxShadow: "0 0 16px rgba(124,58,237,0.08)" }}
+            >
+              <span className="text-[11px] uppercase tracking-widest text-purple-700 font-bold text-center px-1">
+                {img.placeholderLabel}
+              </span>
+            </div>
           )}
         </button>
       ))}
@@ -579,10 +595,13 @@ function Step1({
 function Step2({ onPick }: { onPick: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-3">
         Which of these is a{" "}
         <span className="text-green-400">real woman</span>?
       </h1>
+      <p className="text-[13px] sm:text-sm text-purple-300 font-semibold text-center mb-4">
+        👆 Tap the photo you think is real
+      </p>
       <IntroTwoTileRow
         images={[
           { url: INTRO2_IMG_A, placeholderLabel: "INTRO2 A" },
@@ -590,9 +609,6 @@ function Step2({ onPick }: { onPick: () => void }) {
         ]}
         onPick={onPick}
       />
-      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-4">
-        Tap a photo to lock in your answer.
-      </p>
     </>
   );
 }
@@ -600,10 +616,13 @@ function Step2({ onPick }: { onPick: () => void }) {
 function Step3({ onPick }: { onPick: () => void }) {
   return (
     <>
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-3">
         Which of these is a{" "}
         <span className="text-green-400">real woman</span>?
       </h1>
+      <p className="text-[13px] sm:text-sm text-purple-300 font-semibold text-center mb-4">
+        👆 Tap the photo you think is real
+      </p>
       <IntroTwoTileRow
         images={[
           { url: INTRO3_IMG_A, placeholderLabel: "INTRO3 A" },
@@ -611,9 +630,6 @@ function Step3({ onPick }: { onPick: () => void }) {
         ]}
         onPick={onPick}
       />
-      <p className="text-[11px] sm:text-xs text-gray-500 text-center mt-4">
-        Tap a photo to lock in your answer.
-      </p>
     </>
   );
 }
