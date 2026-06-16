@@ -77,8 +77,7 @@ export default function DownsellPage() {
 
               <a
                 href="https://pay.hotmart.com/U106013301D?off=pqis6sbk&checkoutMode=10&sck=organico"
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_self"
                 className="inline-block mt-6 bg-green-500 hover:bg-green-600 transition-colors text-white font-bold text-lg px-8 py-4 rounded-xl shadow-lg shadow-green-500/30"
               >
                 🚀 CLAIM MY DISCOUNT

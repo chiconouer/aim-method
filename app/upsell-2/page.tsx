@@ -119,8 +119,7 @@ export default function UpsellPage() {
               <>
                 <a
                   href={CHECKOUT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  target="_self"
                   className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden"
                   style={{
                     background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
