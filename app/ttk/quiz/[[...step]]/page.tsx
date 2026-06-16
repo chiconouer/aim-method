@@ -46,11 +46,16 @@ const TOTAL_STEPS = 8;
 // is "wrong" — both branches are wired regardless of the asset.
 // Steps 2 & 3 show TWO tiles each; tapping either tile in step 2
 // is always "correct", in step 3 always "wrong".
-const INTRO1_IMG = "";
-const INTRO2_IMG_A = "";
-const INTRO2_IMG_B = "";
-const INTRO3_IMG_A = "";
-const INTRO3_IMG_B = "";
+const INTRO1_IMG =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/imagemetapa_1.jpg";
+const INTRO2_IMG_A =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_1190.jpg";
+const INTRO2_IMG_B =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_1191.jpg";
+const INTRO3_IMG_A =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_1192.jpg";
+const INTRO3_IMG_B =
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_1193.jpg";
 
 // ───── MAIN STEPS (4-8): paste media URLs as they become available ─────
 const STEP4_IMAGE_URL =
@@ -452,7 +457,7 @@ function IntroSingleTile({
 // Two-tile guess row used by intro steps 2 and 3. Mirrors the
 // visual treatment of Step 5's two-image grid (Instagram profile +
 // earnings screenshots): inline <img> tags with natural aspect,
-// capped at max-h-[280px], centered in their grid cell via mx-auto.
+// capped at max-h-[360px], centered in their grid cell via mx-auto.
 // `items-start` keeps tiles top-aligned when their natural heights
 // differ. ANY tap calls onPick — the right/wrong decision is made
 // in the parent (so this component stays asset-agnostic).
@@ -483,7 +488,7 @@ function IntroTwoTileRow({
             <img
               src={img.url}
               alt={`Option ${String.fromCharCode(65 + i)}`}
-              className="block max-h-[280px] max-w-full w-auto h-auto mx-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors"
+              className="block max-h-[360px] max-w-full w-auto h-auto mx-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors"
             />
           ) : (
             // Empty-URL placeholder — same border treatment as a real
@@ -682,7 +687,7 @@ function Step5({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP5_PROFILE_IMAGE_URL}
             alt="Example AI profile"
-            className="block max-h-[280px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+            className="block max-h-[360px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
           <ImagePlaceholder url="" alt="Example AI profile" aspectClass="aspect-[3/4]" />
@@ -692,7 +697,7 @@ function Step5({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP5_EARNINGS_IMAGE_URL}
             alt="Earnings proof"
-            className="block max-h-[280px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
+            className="block max-h-[360px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
           <ImagePlaceholder url="" alt="Earnings proof" aspectClass="aspect-[3/4]" />
