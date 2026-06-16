@@ -1,17 +1,17 @@
 // =============================================================
 // FB variant — Sales page (Facebook paid-traffic / Digistore)
 // -------------------------------------------------------------
-// Mirror of /ads/sales for the FACEBOOK paid-traffic funnel.
+// Mirror of /ttk/sales for the FACEBOOK paid-traffic funnel.
 // Wired to the SAME Digistore product (688952 $29 course) as
-// /ads/sales, but ships WITHOUT any tracking scripts yet — no
+// /ttk/sales, but ships WITHOUT any tracking scripts yet — no
 // TikTok pixel, no Utmify UTM tracker, no Microsoft Clarity. Add
 // FB pixel + analytics here when ready.
 //
-// HEADLINE BLOCK REMOVED on purpose (consistent with /ads/sales):
+// HEADLINE BLOCK REMOVED on purpose (consistent with /ttk/sales):
 // the AIM Method logo sits at top, VSL video starts right below
 // with mt-3 of breathing room — no badge, no big H1, no subhead.
 //
-// The original /sales (organic Hotmart) and /ads/sales (paid
+// The original /sales (organic Hotmart) and /ttk/sales (paid
 // Digistore + TikTok bundle) are NOT touched by this duplicate.
 // =============================================================
 
@@ -20,7 +20,7 @@ import { useEffect, useRef } from "react";
 import { FbTracking } from "@/components/FbTracking";
 
 // JSX type for Vturb's custom element (web component, no public type pkg).
-// Module augmentation already merged from /ads/sales; redeclaring locally
+// Module augmentation already merged from /ttk/sales; redeclaring locally
 // keeps this file self-contained and avoids hidden cross-file coupling.
 declare module "react" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -63,7 +63,7 @@ const FAQS = [
 ];
 
 // FB / Sales page — Facebook paid-traffic version of /sales.
-// Wired to Digistore product 688952 ($29 course) — same as /ads/sales.
+// Wired to Digistore product 688952 ($29 course) — same as /ttk/sales.
 const CHECKOUT_URL =
   "https://www.checkout-ds24.com/product/688952?aff=SpackReach2&hide_plans=";
 
@@ -90,7 +90,7 @@ export default function FbSalesPage() {
 
   useEffect(() => {
     // Load Vturb script — FB-funnel-specific player (separate retention
-    // + analytics from /ads/sales's TikTok player). The preload hint
+    // + analytics from /ttk/sales's TikTok player). The preload hint
     // below the root <div> primes the browser to fetch this URL before
     // useEffect even runs, so by the time we inject the <script> tag
     // here the bytes are usually already cached.

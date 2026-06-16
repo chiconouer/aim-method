@@ -1,12 +1,18 @@
 // =============================================================
-// Ads variant — Pre-VSL Quiz funnel (paid-traffic warm-up)
+// TikTok variant — Pre-VSL Quiz funnel (paid-traffic warm-up)
 // -------------------------------------------------------------
-// FIRST page of the paid funnel. 5-step linear persuasion sequence
-// with a progress bar — no real quiz questions, no branching, no
-// state persisted anywhere. Goal: warm up cold ad traffic before
-// dumping them into the VSL at /ads/sales.
+// FIRST page of the TikTok paid funnel. 5-step linear persuasion
+// sequence with a progress bar — no real quiz questions, no
+// branching, no state persisted anywhere. Goal: warm up cold ad
+// traffic before dumping them into the VSL at /ttk/sales.
 //
-// Step 5's CTA navigates to /ads/sales (next page of the funnel).
+// Step 5's CTA navigates to /ttk/sales (next page of the funnel).
+//
+// Route is an optional catch-all (/ttk/quiz/[[...step]]) so the
+// browser URL can mirror the current step (/ttk/quiz/1 ... /5)
+// without remounting, and a refresh mid-quiz lands on that step.
+// The base /ttk/quiz still works — initial step defaults to 1 when
+// no segment is present.
 //
 // All image/video URLs are empty constants at the top — paste real
 // values when ready. While empty, each block renders a neutral
@@ -387,8 +393,22 @@ function Step5({ onContinue }: { onContinue: () => void }) {
   );
 }
 
-export default function AdsQuizPage() {
-  const [step, setStep] = useState(1);
+// Optional catch-all gives us `params.step` as `string[] | undefined`.
+// Clamp the first segment to [1..TOTAL_STEPS]; anything else → step 1.
+// Keeps mid-quiz refreshes (e.g. /ttk/quiz/3) landing on that step and
+// the base /ttk/quiz (no segment) starting at 1.
+function parseInitialStep(segment: string[] | undefined): number {
+  const raw = segment?.[0];
+  const n = raw ? parseInt(raw, 10) : 1;
+  return Number.isFinite(n) && n >= 1 && n <= TOTAL_STEPS ? n : 1;
+}
+
+export default function TtkQuizPage({
+  params,
+}: {
+  params: { step?: string[] };
+}) {
+  const [step, setStep] = useState(() => parseInitialStep(params.step));
   const router = useRouter();
 
   // "Reached step N" — fires whenever the visible step changes,
@@ -397,6 +417,11 @@ export default function AdsQuizPage() {
   // per step in Clarity, scoped to the TikTok funnel via the tt_ prefix.
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Mirror step in URL via replaceState (NOT pushState) so the
+      // browser back button leaves the quiz instead of walking through
+      // steps in reverse. Pure DOM API — no Next.js navigation, no
+      // remount, no fetch.
+      window.history.replaceState(null, "", `/ttk/quiz/${step}`);
       window.clarity?.("event", `tt_quiz_step_${step}_viewed`);
     }
   }, [step]);
@@ -419,9 +444,9 @@ export default function AdsQuizPage() {
     if (typeof window !== "undefined") {
       window.clarity?.("event", "tt_quiz_step_5_completed");
     }
-    // Client-side nav into the VSL page. /ads/sales mounts its own
+    // Client-side nav into the VSL page. /ttk/sales mounts its own
     // Vturb script via useEffect, so SPA navigation works fine.
-    router.push("/ads/sales");
+    router.push("/ttk/sales");
   }
 
   const progressPct = (step / TOTAL_STEPS) * 100;

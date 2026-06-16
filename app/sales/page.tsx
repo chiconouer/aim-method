@@ -125,7 +125,7 @@ export default function SalesPage() {
       </nav>
 
       {/* VIDEO — sits right below the NAV (HERO headline block removed
-          intentionally to match /ads/sales and /fb/sales; mt-3 gives a
+          intentionally to match /ttk/sales and /fb/sales; mt-3 gives a
           small breathing gap below the NAV border without leaving empty
           space). */}
       <div className="mx-4 mt-3 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>

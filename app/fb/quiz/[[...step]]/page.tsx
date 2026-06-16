@@ -2,14 +2,20 @@
 // FB variant — Pre-VSL Quiz funnel (Facebook paid-traffic warm-up)
 // -------------------------------------------------------------
 // FIRST page of the FACEBOOK paid funnel. Identical structure to
-// /ads/quiz (5-step linear persuasion sequence, same media URLs,
+// /ttk/quiz (5-step linear persuasion sequence, same media URLs,
 // same copy, same swipeable testimonial carousel on Step 4), with
-// TWO differences from /ads/quiz:
-//   1. Step 5's CTA navigates to /fb/sales (not /ads/sales).
-//   2. NO tracking — no TikTok pixel, no Utmify UTM tracker, no
-//      Microsoft Clarity. Add Meta pixel here when ready.
+// ONE difference from /ttk/quiz:
+//   1. Step 5's CTA navigates to /fb/sales (not /ttk/sales).
+//   2. Loads <FbTracking /> (Meta pixel + Clarity) instead of
+//      <TikTokPixel />.
 //
-// /ads/quiz (TikTok-bundle tracking) and the organic /sales are
+// Route is an optional catch-all (/fb/quiz/[[...step]]) so the
+// browser URL can mirror the current step (/fb/quiz/1 ... /5)
+// without remounting, and a refresh mid-quiz lands on that step.
+// The base /fb/quiz still works — initial step defaults to 1 when
+// no segment is present.
+//
+// /ttk/quiz (TikTok-bundle tracking) and the organic /sales are
 // NOT touched by this duplicate.
 // =============================================================
 
@@ -32,7 +38,7 @@ declare global {
 
 const TOTAL_STEPS = 5;
 
-// ───── Media URLs — same as /ads/quiz ─────
+// ───── Media URLs — same as /ttk/quiz ─────
 const STEP1_IMAGE_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/Screenshot%202026-06-07%20at%2011.02.08%20PM.png";
 const STEP2_PROFILE_IMAGE_URL =
@@ -364,8 +370,22 @@ function Step5({ onContinue }: { onContinue: () => void }) {
   );
 }
 
-export default function FbQuizPage() {
-  const [step, setStep] = useState(1);
+// Optional catch-all gives us `params.step` as `string[] | undefined`.
+// Clamp the first segment to [1..TOTAL_STEPS]; anything else → step 1.
+// Keeps mid-quiz refreshes (e.g. /fb/quiz/3) landing on that step and
+// the base /fb/quiz (no segment) starting at 1.
+function parseInitialStep(segment: string[] | undefined): number {
+  const raw = segment?.[0];
+  const n = raw ? parseInt(raw, 10) : 1;
+  return Number.isFinite(n) && n >= 1 && n <= TOTAL_STEPS ? n : 1;
+}
+
+export default function FbQuizPage({
+  params,
+}: {
+  params: { step?: string[] };
+}) {
+  const [step, setStep] = useState(() => parseInitialStep(params.step));
   const router = useRouter();
 
   // "Reached step N" — fires whenever the visible step changes,
@@ -374,6 +394,11 @@ export default function FbQuizPage() {
   // per step in Clarity, scoped to the Facebook funnel via the fb_ prefix.
   useEffect(() => {
     if (typeof window !== "undefined") {
+      // Mirror step in URL via replaceState (NOT pushState) so the
+      // browser back button leaves the quiz instead of walking through
+      // steps in reverse. Pure DOM API — no Next.js navigation, no
+      // remount, no fetch.
+      window.history.replaceState(null, "", `/fb/quiz/${step}`);
       window.clarity?.("event", `fb_quiz_step_${step}_viewed`);
     }
   }, [step]);
