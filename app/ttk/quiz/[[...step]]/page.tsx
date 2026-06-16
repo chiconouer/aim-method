@@ -454,10 +454,13 @@ function IntroSingleTile({
   );
 }
 
-// Two-tile guess row used by intro steps 2 and 3. Mirrors the
-// visual treatment of Step 5's two-image grid (Instagram profile +
-// earnings screenshots): inline <img> tags with natural aspect,
-// capped at max-h-[360px], centered in their grid cell via mx-auto.
+// Two-tile guess row used by intro steps 2 and 3. Same visual
+// recipe as Step 5's two-image grid (inline <img> + natural aspect
+// + mx-auto centering), but with a much taller max-height cap
+// (55vh — about half the viewport on mobile) so the intro photos
+// fill the screen instead of leaving black space below. Step 5
+// keeps its 360px cap because its Continue button must stay
+// in-view.
 // `items-start` keeps tiles top-aligned when their natural heights
 // differ. ANY tap calls onPick — the right/wrong decision is made
 // in the parent (so this component stays asset-agnostic).
@@ -488,7 +491,7 @@ function IntroTwoTileRow({
             <img
               src={img.url}
               alt={`Option ${String.fromCharCode(65 + i)}`}
-              className="block max-h-[360px] max-w-full w-auto h-auto mx-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors"
+              className="block max-h-[55vh] max-w-full w-auto h-auto mx-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors"
             />
           ) : (
             // Empty-URL placeholder — same border treatment as a real
@@ -877,6 +880,16 @@ export default function TtkQuizPage({
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
+      {/* High-priority preload hints — rendered into the SSR'd HTML so
+          the browser starts fetching every step image while the page
+          is still parsing, even before the React bundle hydrates.
+          Belt-and-suspenders with the new Image() loop in useEffect:
+          the <link> route catches first-paint, the JS route catches
+          anything that wasn't in the initial HTML (and re-fires after
+          hot-reload during dev). */}
+      {ALL_STEP_IMAGES.filter(Boolean).map((url) => (
+        <link key={url} rel="preload" as="image" href={url} />
+      ))}
       <TikTokPixel />
 
       {/* PROGRESS BAR — sticky at top */}
