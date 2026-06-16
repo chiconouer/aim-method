@@ -14,7 +14,7 @@ const STORAGE_BUCKET = "upsell-photos";
 // Optional — if absent, delivery email is skipped with a warning. Photos
 // still reach ready_for_review and remain accessible at the gallery URL.
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const GALLERY_BASE_URL = "https://www.aimodelmethods.com/upsell-1/my-model";
+const GALLERY_BASE_URL = "https://www.aimodelmethods.com/upsell-2/my-model";
 const EMAIL_FROM = "AIM Method <noreply@aimodelmethods.com>";
 
 interface FormResponses {
