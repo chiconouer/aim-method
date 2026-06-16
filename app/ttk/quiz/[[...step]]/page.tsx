@@ -593,14 +593,18 @@ function Step1({
 }
 
 function Step2({ onPick }: { onPick: () => void }) {
+  // pt-12/16 shifts the block down so it lands in a balanced
+  // middle-of-screen zone on mobile instead of glueing to the top
+  // with empty space below. Not fully centered — the headline would
+  // drift too far from the logo — just nudged into the upper-mid.
   return (
-    <>
+    <div className="pt-12 sm:pt-16">
       <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-3">
         Which of these is a{" "}
         <span className="text-green-400">real woman</span>?
       </h1>
       <p className="text-[13px] sm:text-sm text-purple-300 font-semibold text-center mb-4">
-        👆 Tap the photo you think is real
+        👇 Tap the photo you think is real
       </p>
       <IntroTwoTileRow
         images={[
@@ -609,19 +613,20 @@ function Step2({ onPick }: { onPick: () => void }) {
         ]}
         onPick={onPick}
       />
-    </>
+    </div>
   );
 }
 
 function Step3({ onPick }: { onPick: () => void }) {
+  // pt-12/16 — same vertical-balance shift as Step2, see comment there.
   return (
-    <>
+    <div className="pt-12 sm:pt-16">
       <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-3">
         Which of these is a{" "}
         <span className="text-green-400">real woman</span>?
       </h1>
       <p className="text-[13px] sm:text-sm text-purple-300 font-semibold text-center mb-4">
-        👆 Tap the photo you think is real
+        👇 Tap the photo you think is real
       </p>
       <IntroTwoTileRow
         images={[
@@ -630,7 +635,7 @@ function Step3({ onPick }: { onPick: () => void }) {
         ]}
         onPick={onPick}
       />
-    </>
+    </div>
   );
 }
 
