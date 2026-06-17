@@ -160,15 +160,6 @@ export default function FbSalesPage() {
       <link rel="dns-prefetch" href="https://images.converteai.net" />
       <link rel="dns-prefetch" href="https://license.vturb.com" />
 
-      {/* BANNER */}
-      <div
-        className="relative overflow-hidden py-2 px-4 text-center text-xs font-bold text-white tracking-wide"
-        style={{ background: "linear-gradient(90deg,#2d0a6b,#7c3aed,#2d0a6b)", backgroundSize: "200% 100%", animation: "bannerShift 4s linear infinite" }}
-      >
-        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center,rgba(167,139,250,0.3),transparent 70%)" }} />
-        <p className="relative z-10">✦ Quit your 9-to-5 with my method — watch the free video below ✦</p>
-      </div>
-
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
         <span className="text-lg font-black tracking-tight">
