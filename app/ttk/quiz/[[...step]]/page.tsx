@@ -25,7 +25,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import confetti from "canvas-confetti";
+// canvas-confetti is loaded LAZILY via dynamic import inside
+// fireCelebration() (see loadConfetti()) so the ~5 KB lib stays
+// out of the initial route chunk. Only the type lives at the top
+// of the file via `import type`, which is erased at compile time.
+import type confetti from "canvas-confetti";
 import { TikTokPixel } from "@/components/TikTokPixel";
 
 // Microsoft Clarity exposes window.clarity as a function once the
@@ -79,12 +83,19 @@ const STEP8_IMAGE_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_00182.PNG";
 // ───────────────────────────────────────────────────────────
 
-// Every image URL referenced anywhere in the funnel, in one place.
-// Used by the eager preloader inside TtkQuizPage — filters empties
-// out at runtime so unset placeholders don't fire HEAD requests for
-// the empty string.
-const ALL_STEP_IMAGES: string[] = [
-  INTRO1_IMG,
+// Images that are DEFERRED past first paint. INTRO1_IMG (step 1) is
+// deliberately NOT in this list — it's preloaded eagerly via a
+// fetchpriority="high" <link> in the SSR'd HTML + a fetchPriority
+// attribute on the <img> tag itself, because step 1 is what the
+// visitor sees first and any delay here costs paid clicks.
+//
+// Everything else (intros 2/3 + the heavy main-funnel PNGs) is
+// kicked off after first paint via requestIdleCallback so it
+// doesn't compete with step 1 for bandwidth. The visitor spends
+// ~10-30 s on steps 1-3 (reading + the guess interactions), which
+// is more than enough time for the heavy images to land in cache
+// before step 4 mounts.
+const DEFERRED_PRELOAD_IMAGES: string[] = [
   INTRO2_IMG_A,
   INTRO2_IMG_B,
   INTRO3_IMG_A,
@@ -257,18 +268,33 @@ function recordFunnelStep(platform: "ttk" | "fb", step: number): void {
 }
 
 // =============================================================
-// Celebration burst — confetti via canvas-confetti (~5 KB gz).
+// Celebration burst — confetti via canvas-confetti (~5 KB gz),
+// LAZY-LOADED via dynamic import so the lib doesn't ship in the
+// initial route chunk. The first popup tap downloads the chunk
+// (typically <100 ms on warm caches); subsequent celebrations
+// reuse the cached module.
+//
 // Fires on correct guesses (step 1 picking "A.I." and step 2 any
 // tap). Three layered effects: a center burst, raining money
-// emojis from the top, and side bursts ~200ms later for depth.
+// emojis from the top, and side bursts ~200 ms later for depth.
 //
 // Every public call is wrapped in try/catch so a missing
-// document, denied OffscreenCanvas, or a stale browser silently
-// no-ops — the popup must always show, the user must always be
-// able to advance.
+// document, denied OffscreenCanvas, dynamic-import failure, or
+// a stale browser silently no-ops — the popup must always show,
+// the user must always be able to advance.
 // =============================================================
-function fireCelebration(): void {
+type ConfettiFn = typeof confetti;
+let confettiPromise: Promise<ConfettiFn> | null = null;
+function loadConfetti(): Promise<ConfettiFn> {
+  if (!confettiPromise) {
+    confettiPromise = import("canvas-confetti").then((m) => m.default);
+  }
+  return confettiPromise;
+}
+
+async function fireCelebration(): Promise<void> {
   try {
+    const confetti = await loadConfetti();
     // Confetti renders to its own fixed-position canvas; zIndex
     // 9999 makes sure it overlays the popup (z-[60]).
     confetti({
@@ -582,10 +608,17 @@ function IntroSingleTile({
         className="relative mx-auto"
         style={{ width: "fit-content" }}
       >
+        {/* fetchPriority + loading="eager" tells the browser this is
+            the LCP candidate — the same hint that lets the
+            <link rel="preload"> in <head> outrank the deferred image
+            requests when they kick off after first paint. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={url}
           alt="Real or A.I.?"
+          fetchPriority="high"
+          loading="eager"
+          decoding="async"
           className={`block max-h-[55vh] max-w-full w-auto h-auto rounded-2xl border border-purple-900/30 ${
             revealing ? "intro-glitch" : ""
           }`}
@@ -1029,29 +1062,46 @@ export default function TtkQuizPage({
   const [revealing, setRevealing] = useState(false);
   const router = useRouter();
 
-  // EAGER IMAGE PRELOAD. Without this, each step image only started
-  // fetching when its step rendered for the first time. The Step 4
-  // PNG is ~1 MB and Supabase Storage serves Cache-Control: no-cache
-  // (every request revalidates), so the user used to stare at an
-  // empty placeholder for a full second after tapping into step 4.
+  // DEFERRED IMAGE PRELOAD. Step 1's image is preloaded eagerly via
+  // a fetchpriority="high" <link> rendered in the SSR'd HTML below;
+  // we deliberately do NOT preload the remaining 13 images at first
+  // paint because the 4 heavy main-funnel PNGs (Step 4 1 MB, Step 5
+  // earnings 1 MB, Step 7 first 1.4 MB, Step 8 3.1 MB ≈ 6.6 MB
+  // total) would compete with step 1 for bandwidth and ruin the
+  // landing-page paint time for paid clicks.
   //
-  // Creating a detached Image() object kicks off a background fetch
-  // at mount, so by the time the user reaches that step the bytes
-  // are already cached. no-cache still forces a revalidation
-  // round-trip, but the body is served from disk cache as 304 —
-  // much faster than the original 1 MB download. We run this once
-  // (empty deps), filter empties, and don't track completion since
-  // failures should just degrade to the original behavior silently.
+  // Instead we kick the rest off via requestIdleCallback so the
+  // browser only starts the fetches once it's done with first paint
+  // + hydration + any pending layout. Falls back to setTimeout(800)
+  // on browsers without idle-callback support (mainly older Safari).
+  // The visitor spends ~10-30 s on steps 1-3, which is more than
+  // enough time for the heavy images to land in cache before step 4.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    for (const url of ALL_STEP_IMAGES) {
-      if (!url) continue;
-      try {
-        const img = new Image();
-        img.src = url;
-      } catch {
-        // Should never throw, but if some exotic env does, just skip.
+
+    function deferredPreload() {
+      for (const url of DEFERRED_PRELOAD_IMAGES) {
+        if (!url) continue;
+        try {
+          const img = new Image();
+          img.src = url;
+        } catch {
+          // Should never throw; if some exotic env does, just skip.
+        }
       }
+    }
+
+    type IdleCallback = (
+      cb: () => void,
+      opts?: { timeout: number },
+    ) => number;
+    const ric = (
+      window as unknown as { requestIdleCallback?: IdleCallback }
+    ).requestIdleCallback;
+    if (ric) {
+      ric(deferredPreload, { timeout: 2000 });
+    } else {
+      setTimeout(deferredPreload, 800);
     }
   }, []);
 
@@ -1104,9 +1154,11 @@ export default function TtkQuizPage({
 
   // Correct path — fire the celebration burst (confetti + falling
   // money emojis) and pop the popup right away. No reveal delay.
+  // `void` discards the celebration Promise: confetti is fire-and-
+  // forget, the popup must not wait on the dynamic-import chunk.
   function triggerCorrect(stepNumber: number) {
     playMoneySound();
-    fireCelebration();
+    void fireCelebration();
     setPopup({ kind: "correct", step: stepNumber });
   }
 
@@ -1132,16 +1184,19 @@ export default function TtkQuizPage({
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
-      {/* High-priority preload hints — rendered into the SSR'd HTML so
-          the browser starts fetching every step image while the page
-          is still parsing, even before the React bundle hydrates.
-          Belt-and-suspenders with the new Image() loop in useEffect:
-          the <link> route catches first-paint, the JS route catches
-          anything that wasn't in the initial HTML (and re-fires after
-          hot-reload during dev). */}
-      {ALL_STEP_IMAGES.filter(Boolean).map((url) => (
-        <link key={url} rel="preload" as="image" href={url} />
-      ))}
+      {/* Step 1's image is the only render-critical asset for first
+          paint, so it's the ONLY <link rel="preload"> in the initial
+          HTML and it's flagged fetchpriority="high". Everything else
+          loads via requestIdleCallback after paint — see the
+          DEFERRED_PRELOAD_IMAGES useEffect above. */}
+      {INTRO1_IMG && (
+        <link
+          rel="preload"
+          as="image"
+          href={INTRO1_IMG}
+          fetchPriority="high"
+        />
+      )}
       <TikTokPixel />
 
       {/* PROGRESS BAR — sticky at top */}
