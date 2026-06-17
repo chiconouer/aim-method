@@ -25,6 +25,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import confetti from "canvas-confetti";
 import { TikTokPixel } from "@/components/TikTokPixel";
 
 // Microsoft Clarity exposes window.clarity as a function once the
@@ -218,6 +219,106 @@ function playMoneySound(): void {
   } catch {
     // Silent no-op — audio must never block the popup UX.
   }
+}
+
+// =============================================================
+// Celebration burst — confetti via canvas-confetti (~5 KB gz).
+// Fires on correct guesses (step 1 picking "A.I." and step 2 any
+// tap). Three layered effects: a center burst, raining money
+// emojis from the top, and side bursts ~200ms later for depth.
+//
+// Every public call is wrapped in try/catch so a missing
+// document, denied OffscreenCanvas, or a stale browser silently
+// no-ops — the popup must always show, the user must always be
+// able to advance.
+// =============================================================
+function fireCelebration(): void {
+  try {
+    // Confetti renders to its own fixed-position canvas; zIndex
+    // 9999 makes sure it overlays the popup (z-[60]).
+    confetti({
+      particleCount: 80,
+      spread: 80,
+      startVelocity: 35,
+      ticks: 130,
+      origin: { x: 0.5, y: 0.65 },
+      colors: ["#7c3aed", "#a78bfa", "#22c55e", "#fbbf24", "#e9d5ff"],
+      zIndex: 9999,
+    });
+
+    // Raining money emojis from the top. shapeFromText was added
+    // in canvas-confetti 1.6 — the package.json pin (^1.9) is well
+    // above that.
+    try {
+      const money = confetti.shapeFromText({ text: "💰", scalar: 3 });
+      confetti({
+        particleCount: 22,
+        angle: 270,
+        spread: 110,
+        startVelocity: 28,
+        gravity: 1.1,
+        ticks: 220,
+        origin: { x: 0.5, y: 0 },
+        shapes: [money],
+        scalar: 3,
+        zIndex: 9999,
+      });
+    } catch {
+      // shapeFromText unavailable — center burst alone is enough.
+    }
+
+    // Side bursts 200ms later for layered crowd-roar feel.
+    setTimeout(() => {
+      try {
+        confetti({
+          particleCount: 40,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors: ["#7c3aed", "#a78bfa", "#22c55e", "#fbbf24"],
+          zIndex: 9999,
+        });
+        confetti({
+          particleCount: 40,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors: ["#7c3aed", "#a78bfa", "#22c55e", "#fbbf24"],
+          zIndex: 9999,
+        });
+      } catch {
+        /* */
+      }
+    }, 200);
+  } catch {
+    // Silent no-op — celebration failures must never block the popup.
+  }
+}
+
+// Red rubber-stamp overlay rendered on top of an image during the
+// "wrong" reveal on steps 1 and 3. Positioned absolutely; the
+// caller is expected to provide a `relative` parent that hugs the
+// image so this lands centered over the photo itself.
+function AIStamp() {
+  return (
+    <div
+      className="intro-stamp absolute pointer-events-none whitespace-nowrap"
+      style={{
+        top: "50%",
+        left: "50%",
+        padding: "8px 14px",
+        background: "rgba(220, 38, 38, 0.92)",
+        border: "3px solid rgba(255, 255, 255, 0.95)",
+        boxShadow:
+          "0 0 28px rgba(220, 38, 38, 0.7), 0 6px 18px rgba(0,0,0,0.55)",
+        transform: "translate(-50%, -50%) rotate(-12deg)",
+      }}
+    >
+      <span className="text-white font-black text-sm sm:text-lg tracking-widest">
+        AI GENERATED 🤖
+      </span>
+    </div>
+  );
 }
 
 function ImagePlaceholder({
@@ -422,34 +523,58 @@ function ContinueButton({
 }
 
 // Generic single-tile renderer used by Step 1 (one image above the
-// Real/A.I. buttons). Keeps the aspect ratio capped so the tile
-// stays tall enough to feel like a portrait without overflowing
-// the screen on small viewports.
+// Real/A.I. buttons). When `revealing` is true, the image runs the
+// glitch keyframe and stamps an "AI GENERATED" badge over the
+// portrait — this is the "you got tricked, it was AI all along"
+// reveal that fires when the user taps the "Real" button (wrong
+// answer on the scripted Step 1).
+//
+// The wrapper uses `width: fit-content + mx-auto` so the
+// absolutely-positioned <AIStamp /> centers on the image itself,
+// not on the wider parent container.
 function IntroSingleTile({
   url,
   placeholderLabel,
+  revealing = false,
 }: {
   url: string;
   placeholderLabel: string;
+  revealing?: boolean;
 }) {
   if (url) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={url}
-        alt="Real or A.I.?"
-        className="block max-h-[55vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
-      />
+      <div
+        className="relative mx-auto"
+        style={{ width: "fit-content" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt="Real or A.I.?"
+          className={`block max-h-[55vh] max-w-full w-auto h-auto rounded-2xl border border-purple-900/30 ${
+            revealing ? "intro-glitch" : ""
+          }`}
+        />
+        {revealing && <AIStamp />}
+      </div>
     );
   }
   return (
     <div
-      className="w-full max-w-sm mx-auto aspect-[3/4] rounded-2xl border border-purple-900/30 flex items-center justify-center bg-[#0d0d0d]"
-      style={{ boxShadow: "0 0 20px rgba(124,58,237,0.08)" }}
+      className="relative w-full max-w-sm mx-auto"
+      style={{ width: "fit-content" }}
     >
-      <span className="text-[10px] uppercase tracking-widest text-purple-700 font-bold">
-        {placeholderLabel}
-      </span>
+      <div
+        className={`w-full max-w-sm aspect-[3/4] rounded-2xl border border-purple-900/30 flex items-center justify-center bg-[#0d0d0d] ${
+          revealing ? "intro-glitch" : ""
+        }`}
+        style={{ boxShadow: "0 0 20px rgba(124,58,237,0.08)" }}
+      >
+        <span className="text-[10px] uppercase tracking-widest text-purple-700 font-bold">
+          {placeholderLabel}
+        </span>
+      </div>
+      {revealing && <AIStamp />}
     </div>
   );
 }
@@ -472,9 +597,11 @@ function IntroSingleTile({
 function IntroTwoTileRow({
   images,
   onPick,
+  revealing = false,
 }: {
   images: { url: string; placeholderLabel: string }[];
   onPick: () => void;
+  revealing?: boolean;
 }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:gap-3 items-start">
@@ -486,27 +613,38 @@ function IntroTwoTileRow({
           aria-label={`Pick option ${String.fromCharCode(65 + i)}`}
           className="group block focus:outline-none active:scale-[0.97] transition-transform cursor-pointer"
         >
-          {img.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={img.url}
-              alt={`Option ${String.fromCharCode(65 + i)}`}
-              className="block max-h-[55vh] max-w-full w-auto h-auto mx-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors"
-            />
-          ) : (
-            // Empty-URL placeholder — same border treatment as a real
-            // image so the tap cue still reads while the funnel is
-            // mid-build. Aspect-[3/4] gives the box a portrait shape
-            // that roughly matches what a real headshot will render at.
-            <div
-              className="w-full aspect-[3/4] rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors flex items-center justify-center bg-[#0d0d0d]"
-              style={{ boxShadow: "0 0 16px rgba(124,58,237,0.08)" }}
-            >
-              <span className="text-[11px] uppercase tracking-widest text-purple-700 font-bold text-center px-1">
-                {img.placeholderLabel}
-              </span>
-            </div>
-          )}
+          {/* relative + fit-content wrapper so the AI GENERATED stamp
+              centers on the image, not the full button cell. */}
+          <div
+            className="relative mx-auto"
+            style={{ width: "fit-content" }}
+          >
+            {img.url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={img.url}
+                alt={`Option ${String.fromCharCode(65 + i)}`}
+                className={`block max-h-[55vh] max-w-full w-auto h-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors ${
+                  revealing ? "intro-glitch" : ""
+                }`}
+              />
+            ) : (
+              <div
+                className={`w-full aspect-[3/4] rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors flex items-center justify-center bg-[#0d0d0d] ${
+                  revealing ? "intro-glitch" : ""
+                }`}
+                style={{
+                  boxShadow: "0 0 16px rgba(124,58,237,0.08)",
+                  minWidth: "120px",
+                }}
+              >
+                <span className="text-[11px] uppercase tracking-widest text-purple-700 font-bold text-center px-1">
+                  {img.placeholderLabel}
+                </span>
+              </div>
+            )}
+            {revealing && <AIStamp />}
+          </div>
         </button>
       ))}
     </div>
@@ -520,9 +658,13 @@ type PopupKind = "correct" | "wrong";
 
 function GuessPopup({
   kind,
+  title,
+  subtitle,
   onContinue,
 }: {
   kind: PopupKind;
+  title: string;
+  subtitle: string;
   onContinue: () => void;
 }) {
   const isCorrect = kind === "correct";
@@ -552,25 +694,56 @@ function GuessPopup({
             isCorrect ? "text-green-400" : "text-red-400"
           }`}
         >
-          {isCorrect ? "Correct!" : "Wrong — she's A.I."}
+          {title}
         </h2>
-        <p className="text-sm text-gray-400 mb-2">
-          {isCorrect ? "Nice eye 👁️" : "AI is hard to spot 🤖"}
-        </p>
+        <p className="text-sm text-gray-400 mb-2">{subtitle}</p>
         <ContinueButton label="Continue →" onClick={onContinue} />
       </div>
     </div>
   );
 }
 
-// Step 1 — single image, Real / A.I. buttons. Tap "Real" → wrong,
-// tap "A.I." → correct. The image itself is scripted to be A.I.
+// Maps (step, kind) → popup copy. The headline differs per step
+// because the trick the user is being shown is different — see the
+// scripted behavior in TtkQuizPage's handlers.
+function popupCopyFor(
+  step: number,
+  kind: PopupKind,
+): { title: string; subtitle: string } {
+  if (kind === "correct") {
+    if (step === 1) {
+      return {
+        title: "Correct — she's A.I. ✅",
+        subtitle: "You've got an eye 👀",
+      };
+    }
+    return { title: "Correct!", subtitle: "Nice eye 👁️" };
+  }
+  // wrong
+  if (step === 3) {
+    return {
+      title: "Gotcha! BOTH are A.I. 🤯",
+      subtitle: "See how impossible it is to tell?",
+    };
+  }
+  return {
+    title: "Wrong — she's A.I.",
+    subtitle: "AI is hard to spot 🤖",
+  };
+}
+
+// Step 1 — single image, Real / A.I. buttons. Tap "Real" → wrong
+// (image glitches + AI GENERATED stamp), tap "A.I." → correct
+// (celebration burst). The image is scripted to be A.I., so the
+// "Real" button is always the wrong answer.
 function Step1({
   onReal,
   onAi,
+  revealing,
 }: {
   onReal: () => void;
   onAi: () => void;
+  revealing: boolean;
 }) {
   return (
     <>
@@ -579,19 +752,25 @@ function Step1({
         <span className="text-green-400">real</span> or{" "}
         <span className="text-purple-400">A.I.</span>?
       </h1>
-      <IntroSingleTile url={INTRO1_IMG} placeholderLabel="INTRO1" />
+      <IntroSingleTile
+        url={INTRO1_IMG}
+        placeholderLabel="INTRO1"
+        revealing={revealing}
+      />
       <div className="grid grid-cols-2 gap-3 mt-5">
         <button
           type="button"
           onClick={onReal}
-          className="text-white text-base sm:text-lg font-black py-4 rounded-2xl border border-purple-700/40 bg-[#0d0a1a] hover:bg-[#13102a] focus:outline-none focus-visible:border-purple-400 transition-colors active:scale-[0.98]"
+          disabled={revealing}
+          className="text-white text-base sm:text-lg font-black py-4 rounded-2xl border border-purple-700/40 bg-[#0d0a1a] hover:bg-[#13102a] focus:outline-none focus-visible:border-purple-400 transition-colors active:scale-[0.98] disabled:opacity-60 disabled:cursor-default"
         >
           Real
         </button>
         <button
           type="button"
           onClick={onAi}
-          className="text-white text-base sm:text-lg font-black py-4 rounded-2xl border border-purple-700/40 bg-[#0d0a1a] hover:bg-[#13102a] focus:outline-none focus-visible:border-purple-400 transition-colors active:scale-[0.98]"
+          disabled={revealing}
+          className="text-white text-base sm:text-lg font-black py-4 rounded-2xl border border-purple-700/40 bg-[#0d0a1a] hover:bg-[#13102a] focus:outline-none focus-visible:border-purple-400 transition-colors active:scale-[0.98] disabled:opacity-60 disabled:cursor-default"
         >
           A.I.
         </button>
@@ -625,7 +804,13 @@ function Step2({ onPick }: { onPick: () => void }) {
   );
 }
 
-function Step3({ onPick }: { onPick: () => void }) {
+function Step3({
+  onPick,
+  revealing,
+}: {
+  onPick: () => void;
+  revealing: boolean;
+}) {
   // pt-12/16 — same vertical-balance shift as Step2, see comment there.
   return (
     <div className="pt-12 sm:pt-16">
@@ -642,6 +827,7 @@ function Step3({ onPick }: { onPick: () => void }) {
           { url: INTRO3_IMG_B, placeholderLabel: "INTRO3 B" },
         ]}
         onPick={onPick}
+        revealing={revealing}
       />
     </div>
   );
@@ -796,7 +982,16 @@ export default function TtkQuizPage({
   params: { step?: string[] };
 }) {
   const [step, setStep] = useState(() => parseInitialStep(params.step));
-  const [popup, setPopup] = useState<PopupKind | null>(null);
+  // popup tracks which step + which outcome so popupCopyFor can pick
+  // the right title/subtitle (different per step). null = no popup.
+  const [popup, setPopup] = useState<{ kind: PopupKind; step: number } | null>(
+    null,
+  );
+  // `revealing` flips on between a wrong tap and the popup appearing,
+  // so the intro image components can run the glitch keyframe and
+  // stamp "AI GENERATED" over the photos before the user sees the
+  // explanation. Only steps 1 and 3 actually read this prop.
+  const [revealing, setRevealing] = useState(false);
   const router = useRouter();
 
   // EAGER IMAGE PRELOAD. Without this, each step image only started
@@ -863,16 +1058,29 @@ export default function TtkQuizPage({
     router.push("/ttk/sales");
   }
 
-  // Show a scripted popup (kind decided by the parent based on which
-  // intro step is active), play the money sound, and remember the kind
-  // so GuessPopup can render. Dismissal advances the funnel.
-  function showPopup(kind: PopupKind) {
+  // Correct path — fire the celebration burst (confetti + falling
+  // money emojis) and pop the popup right away. No reveal delay.
+  function triggerCorrect(stepNumber: number) {
     playMoneySound();
-    setPopup(kind);
+    fireCelebration();
+    setPopup({ kind: "correct", step: stepNumber });
+  }
+
+  // Wrong path — flip `revealing` first so the image glitches and the
+  // AI GENERATED stamp slams on, hold the reveal visible for ~700ms,
+  // then show the popup. The setTimeout always fires (not chained to
+  // animation completion) so a slow GPU never strands the user.
+  function triggerWrongWithReveal(stepNumber: number) {
+    playMoneySound();
+    setRevealing(true);
+    setTimeout(() => {
+      setPopup({ kind: "wrong", step: stepNumber });
+    }, 700);
   }
 
   function dismissPopupAndAdvance() {
     setPopup(null);
+    setRevealing(false);
     next();
   }
 
@@ -931,12 +1139,18 @@ export default function TtkQuizPage({
         >
           {step === 1 && (
             <Step1
-              onReal={() => showPopup("wrong")}
-              onAi={() => showPopup("correct")}
+              onReal={() => triggerWrongWithReveal(1)}
+              onAi={() => triggerCorrect(1)}
+              revealing={revealing}
             />
           )}
-          {step === 2 && <Step2 onPick={() => showPopup("correct")} />}
-          {step === 3 && <Step3 onPick={() => showPopup("wrong")} />}
+          {step === 2 && <Step2 onPick={() => triggerCorrect(2)} />}
+          {step === 3 && (
+            <Step3
+              onPick={() => triggerWrongWithReveal(3)}
+              revealing={revealing}
+            />
+          )}
           {step === 4 && <Step4 onContinue={next} />}
           {step === 5 && <Step5 onContinue={next} />}
           {step === 6 && <Step6 onContinue={next} />}
@@ -945,9 +1159,18 @@ export default function TtkQuizPage({
         </div>
       </main>
 
-      {popup && (
-        <GuessPopup kind={popup} onContinue={dismissPopupAndAdvance} />
-      )}
+      {popup &&
+        (() => {
+          const copy = popupCopyFor(popup.step, popup.kind);
+          return (
+            <GuessPopup
+              kind={popup.kind}
+              title={copy.title}
+              subtitle={copy.subtitle}
+              onContinue={dismissPopupAndAdvance}
+            />
+          );
+        })()}
 
       <style>{`
         @keyframes btnGlow {
@@ -962,6 +1185,27 @@ export default function TtkQuizPage({
           from { opacity: 0; transform: scale(0.92) translateY(8px); }
           to   { opacity: 1; transform: scale(1) translateY(0); }
         }
+        @keyframes glitchShift {
+          0%   { transform: translate(0, 0); filter: none; }
+          10%  { transform: translate(-2px, 1px);  filter: hue-rotate(15deg)  saturate(1.4); }
+          20%  { transform: translate(2px, -1px);  filter: hue-rotate(-15deg) saturate(1.6) brightness(1.1); }
+          30%  { transform: translate(-3px, 2px);  filter: hue-rotate(25deg)  brightness(1.2); }
+          40%  { transform: translate(3px, -2px);  filter: hue-rotate(-25deg) saturate(1.3); }
+          50%  { transform: translate(-1px, 0);    filter: hue-rotate(30deg)  brightness(1.3); }
+          60%  { transform: translate(2px, 1px);   filter: hue-rotate(-20deg) brightness(0.9); }
+          70%  { transform: translate(0, -2px);    filter: hue-rotate(10deg); }
+          80%  { transform: translate(-2px, 1px);  filter: hue-rotate(-10deg); }
+          90%  { transform: translate(1px, 0);     filter: hue-rotate(5deg); }
+          100% { transform: translate(0, 0); filter: none; }
+        }
+        .intro-glitch { animation: glitchShift 0.6s ease-in-out; }
+        @keyframes stampSlam {
+          0%   { transform: translate(-50%, -50%) rotate(-12deg) scale(3);    opacity: 0; }
+          55%  { transform: translate(-50%, -50%) rotate(-12deg) scale(0.85); opacity: 1; }
+          80%  { transform: translate(-50%, -50%) rotate(-12deg) scale(1.06); opacity: 1; }
+          100% { transform: translate(-50%, -50%) rotate(-12deg) scale(1);    opacity: 1; }
+        }
+        .intro-stamp { animation: stampSlam 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         .carousel-track { -ms-overflow-style: none; scrollbar-width: none; }
         .carousel-track::-webkit-scrollbar { display: none; }
         @keyframes soundPulse {
