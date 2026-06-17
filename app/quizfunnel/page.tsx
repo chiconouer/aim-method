@@ -1,5 +1,5 @@
 // =============================================================
-// /dashboard/funnel — quiz-funnel analytics dashboard (FASE 2)
+// /quizfunnel — quiz-funnel analytics dashboard (FASE 2)
 // -------------------------------------------------------------
 // Reads aggregated step counts from /api/quiz-funnel/stats and
 // renders horizontal funnel bars per platform (/ttk/quiz or
@@ -7,15 +7,17 @@
 // Supabase directly — that route is the only reader, and it
 // uses the service-role client server-side.
 //
+// Standalone route on purpose: lives at top-level /quizfunnel
+// (NOT under /dashboard) so it does not inherit the members-area
+// layout/sidebar in app/dashboard/layout.tsx and is not caught
+// by the /dashboard/:path* middleware matcher. Only its own
+// password gate guards it.
+//
 // Light client-only password gate: hardcoded "AIM1234", remembered
 // for the browser tab via sessionStorage. This is not real auth —
 // just a friction layer so a leaked dashboard URL isn't drive-by
 // accessible. Anyone with browser devtools can find the literal in
 // the bundle; that's an accepted trade-off (per the FASE-2 brief).
-//
-// Middleware exemption: /dashboard/funnel is allowed through the
-// /dashboard/:path* matcher (see middleware.ts) so this page can
-// boot without the course's aim_session cookie.
 //
 // Visual identity: dark page background (#050505), purple-accent
 // cards with the #0d0a1a → #080810 gradient, green highlights for
