@@ -67,9 +67,21 @@ export default function SalesPage() {
   }
 
   useEffect(() => {
-    // Load Vturb script
+    // Vturb perf marker — records the page-load timestamp so the
+    // player can later compute its own load-time metric against it.
+    // Mateus's snippet runs this BEFORE the loader script.
+    const w = window as unknown as { _plt?: number };
+    w._plt =
+      w._plt ||
+      (performance.timeOrigin
+        ? performance.timeOrigin + performance.now()
+        : Date.now());
+
+    // Load the ORGANIC-only Vturb player (id 6a31cd16d43674e069ac2884).
+    // Separate from the TikTok/FB players in /ttk/sales and /fb/sales
+    // so this funnel gets its own Vturb analytics, not shared.
     const s = document.createElement("script");
-    s.src = "https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/69e6749288365845bdfcd75c/v4/player.js";
+    s.src = "https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a31cd16d43674e069ac2884/v4/player.js";
     s.async = true;
     document.head.appendChild(s);
 
@@ -107,6 +119,31 @@ export default function SalesPage() {
   return (
     <div className="min-h-screen bg-[#050505] text-white">
 
+      {/* Vturb preload + DNS prefetch hints — rendered into the SSR'd
+          HTML so the browser starts fetching the player chunks and
+          warming the converteai DNS while the page is still parsing,
+          before useEffect even runs. Same id as the player loaded in
+          useEffect below (organic-only: 6a31cd16d43674e069ac2884). */}
+      <link
+        rel="preload"
+        href="https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a31cd16d43674e069ac2884/v4/player.js"
+        as="script"
+      />
+      <link
+        rel="preload"
+        href="https://scripts.converteai.net/lib/js/smartplayer-wc/v4/smartplayer.js"
+        as="script"
+      />
+      <link
+        rel="preload"
+        href="https://cdn.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/69e6740ad9a2e678cbc93155/main.m3u8"
+        as="fetch"
+      />
+      <link rel="dns-prefetch" href="https://cdn.converteai.net" />
+      <link rel="dns-prefetch" href="https://scripts.converteai.net" />
+      <link rel="dns-prefetch" href="https://images.converteai.net" />
+      <link rel="dns-prefetch" href="https://license.vturb.com" />
+
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
         <span className="text-lg font-black tracking-tight">
@@ -121,8 +158,13 @@ export default function SalesPage() {
           space). */}
       <div className="mx-4 mt-3 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
         <vturb-smartplayer
-          id="vid-69e6749288365845bdfcd75c"
-          style={{ display: "block", width: "100%" }}
+          id="vid-6a31cd16d43674e069ac2884"
+          style={{
+            display: "block",
+            margin: "0 auto",
+            width: "100%",
+            maxWidth: "400px",
+          }}
         />
       </div>
 
