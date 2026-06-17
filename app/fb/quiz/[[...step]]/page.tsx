@@ -222,6 +222,41 @@ function playMoneySound(): void {
 }
 
 // =============================================================
+// Funnel analytics beacon — POST to /api/quiz-funnel for every
+// step view. Browser NEVER touches Supabase directly: the route
+// uses the service-role client server-side, and the
+// quiz_funnel_events table is RLS-locked to service_role only.
+//
+// Prefers navigator.sendBeacon (queued by the browser, survives
+// navigation — that's the property we need for the step=9 fire
+// right before router.push("/{platform}/sales")). Falls back to
+// fetch + keepalive if sendBeacon is missing or returns false
+// (e.g. the browser's beacon queue is full).
+//
+// Wrapped in try/catch so any browser quirk silently no-ops —
+// analytics ingestion must never break the quiz UX.
+// =============================================================
+function recordFunnelStep(platform: "ttk" | "fb", step: number): void {
+  try {
+    if (typeof window === "undefined") return;
+    const body = JSON.stringify({ platform, step });
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      const ok = navigator.sendBeacon("/api/quiz-funnel", blob);
+      if (ok) return;
+    }
+    fetch("/api/quiz-funnel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Silent — analytics failures must never break the quiz.
+  }
+}
+
+// =============================================================
 // Celebration burst — confetti via canvas-confetti (~5 KB gz).
 // Fires on correct guesses (step 1 picking "A.I." and step 2 any
 // tap). Three layered effects: a center burst, raining money
@@ -1032,6 +1067,11 @@ export default function FbQuizPage({
       // remount, no fetch.
       window.history.replaceState(null, "", `/fb/quiz/${step}`);
       window.clarity?.("event", `fb_quiz_step_${step}_viewed`);
+      // Fire the Supabase beacon from the same [step] effect that
+      // fires Clarity, so dedup behavior matches: exactly one row
+      // per step view per session in production (React strict mode
+      // may double-fire in dev — acceptable, dev only).
+      recordFunnelStep("fb", step);
     }
   }, [step]);
 
@@ -1052,6 +1092,10 @@ export default function FbQuizPage({
     // page mounts its own session).
     if (typeof window !== "undefined") {
       window.clarity?.("event", "fb_quiz_step_8_completed");
+      // step=9 = "reached the VSL". sendBeacon is queued by the
+      // browser BEFORE router.push tears the page down, so the
+      // event survives navigation.
+      recordFunnelStep("fb", 9);
     }
     // Client-side nav into the VSL page. /fb/sales mounts its own
     // Vturb script via useEffect, so SPA navigation works fine.
