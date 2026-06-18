@@ -64,48 +64,36 @@ const INTRO3_IMG_B =
 
 // ───── MAIN STEPS (4-8): paste media URLs as they become available ─────
 const STEP4_IMAGE_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/Screenshot%202026-06-07%20at%2011.02.08%20PM.png";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step4.jpg";
 const STEP5_PROFILE_IMAGE_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/22193051-1742-46C5-8A1B-1B4EB91B3385.jpg";
 const STEP5_EARNINGS_IMAGE_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/9DDD5A77-E001-45EE-83BE-BFCDBD1A001F.PNG";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step5earnings.jpg";
 const STEP6_VIDEO_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/D6562B56-AA02-4CEE-B738-A0D8C2362EA1.mov";
 // Step 7 — 5 testimonial images shown in a swipeable carousel
 const STEP7_RESULTS_IMAGES: string[] = [
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/07B9C7A4-6AF6-4486-B605-04B952D2F78A.PNG",
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step7.jpg",
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_0997.jpg",
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_0999.jpg",
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_1001.jpg",
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/93F3E47E-AF60-4CC7-BC7A-D4740F81D5DA.jpg",
 ];
 const STEP8_IMAGE_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_00182.PNG";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step8.jpg";
 // ───────────────────────────────────────────────────────────
 
-// Images that are DEFERRED past first paint. INTRO1_IMG (step 1) is
-// deliberately NOT in this list — it's preloaded eagerly via a
+// Only INTRO1_IMG (step 1) is preloaded eagerly via a
 // fetchpriority="high" <link> in the SSR'd HTML + a fetchPriority
-// attribute on the <img> tag itself, because step 1 is what the
-// visitor sees first and any delay here costs paid clicks.
+// attribute on the <img> tag itself — step 1 is what the visitor
+// sees first and any delay here costs paid clicks.
 //
-// Everything else (intros 2/3 + the heavy main-funnel PNGs) is
-// kicked off after first paint via requestIdleCallback so it
-// doesn't compete with step 1 for bandwidth. The visitor spends
-// ~10-30 s on steps 1-3 (reading + the guess interactions), which
-// is more than enough time for the heavy images to land in cache
-// before step 4 mounts.
-const DEFERRED_PRELOAD_IMAGES: string[] = [
-  INTRO2_IMG_A,
-  INTRO2_IMG_B,
-  INTRO3_IMG_A,
-  INTRO3_IMG_B,
-  STEP4_IMAGE_URL,
-  STEP5_PROFILE_IMAGE_URL,
-  STEP5_EARNINGS_IMAGE_URL,
-  STEP8_IMAGE_URL,
-  ...STEP7_RESULTS_IMAGES,
-];
+// All other step images load lazily when their step mounts
+// (loading="lazy" on each <img>). Now that the four heavy PNGs
+// have been re-encoded to JPEG (8.2 MB → 3.6 MB total across the
+// 14 images), the bulk pre-fetch is no longer worth the memory
+// pressure it caused in the TikTok in-app browser (WKWebView was
+// evicting tabs after the old 7+ MB preload). See PR description.
 
 // =============================================================
 // Money sound — synthesized cash-register "cha-ching" via Web
@@ -527,6 +515,8 @@ function TestimonialsCarousel({ images }: { images: string[] }) {
               <img
                 src={url}
                 alt={`Student result ${i + 1}`}
+                loading="lazy"
+                decoding="async"
                 className="block max-h-[300px] max-w-full w-auto h-auto rounded-2xl border border-purple-900/30"
               />
             ) : (
@@ -692,6 +682,8 @@ function IntroTwoTileRow({
               <img
                 src={img.url}
                 alt={`Option ${String.fromCharCode(65 + i)}`}
+                loading="lazy"
+                decoding="async"
                 className={`block max-h-[55vh] max-w-full w-auto h-auto rounded-2xl border-2 border-purple-700/50 group-hover:border-purple-300 group-focus-visible:border-purple-300 transition-colors ${
                   revealing ? "intro-glitch" : ""
                 }`}
@@ -913,6 +905,8 @@ function Step4({ onContinue }: { onContinue: () => void }) {
         <img
           src={STEP4_IMAGE_URL}
           alt="AI model showcase"
+          loading="lazy"
+          decoding="async"
           className="block max-h-[40vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
         />
       ) : (
@@ -944,6 +938,8 @@ function Step5({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP5_PROFILE_IMAGE_URL}
             alt="Example AI profile"
+            loading="lazy"
+            decoding="async"
             className="block max-h-[360px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
@@ -954,6 +950,8 @@ function Step5({ onContinue }: { onContinue: () => void }) {
           <img
             src={STEP5_EARNINGS_IMAGE_URL}
             alt="Earnings proof"
+            loading="lazy"
+            decoding="async"
             className="block max-h-[360px] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
           />
         ) : (
@@ -1024,6 +1022,8 @@ function Step8({ onContinue }: { onContinue: () => void }) {
         <img
           src={STEP8_IMAGE_URL}
           alt="Class preview"
+          loading="lazy"
+          decoding="async"
           className="block max-h-[42vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30"
         />
       ) : (
@@ -1061,49 +1061,6 @@ export default function TtkQuizPage({
   // explanation. Only steps 1 and 3 actually read this prop.
   const [revealing, setRevealing] = useState(false);
   const router = useRouter();
-
-  // DEFERRED IMAGE PRELOAD. Step 1's image is preloaded eagerly via
-  // a fetchpriority="high" <link> rendered in the SSR'd HTML below;
-  // we deliberately do NOT preload the remaining 13 images at first
-  // paint because the 4 heavy main-funnel PNGs (Step 4 1 MB, Step 5
-  // earnings 1 MB, Step 7 first 1.4 MB, Step 8 3.1 MB ≈ 6.6 MB
-  // total) would compete with step 1 for bandwidth and ruin the
-  // landing-page paint time for paid clicks.
-  //
-  // Instead we kick the rest off via requestIdleCallback so the
-  // browser only starts the fetches once it's done with first paint
-  // + hydration + any pending layout. Falls back to setTimeout(800)
-  // on browsers without idle-callback support (mainly older Safari).
-  // The visitor spends ~10-30 s on steps 1-3, which is more than
-  // enough time for the heavy images to land in cache before step 4.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    function deferredPreload() {
-      for (const url of DEFERRED_PRELOAD_IMAGES) {
-        if (!url) continue;
-        try {
-          const img = new Image();
-          img.src = url;
-        } catch {
-          // Should never throw; if some exotic env does, just skip.
-        }
-      }
-    }
-
-    type IdleCallback = (
-      cb: () => void,
-      opts?: { timeout: number },
-    ) => number;
-    const ric = (
-      window as unknown as { requestIdleCallback?: IdleCallback }
-    ).requestIdleCallback;
-    if (ric) {
-      ric(deferredPreload, { timeout: 2000 });
-    } else {
-      setTimeout(deferredPreload, 800);
-    }
-  }, []);
 
   // "Reached step N" — fires whenever the visible step changes,
   // including the initial mount (step=1). Combined with the
@@ -1186,9 +1143,10 @@ export default function TtkQuizPage({
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
       {/* Step 1's image is the only render-critical asset for first
           paint, so it's the ONLY <link rel="preload"> in the initial
-          HTML and it's flagged fetchpriority="high". Everything else
-          loads via requestIdleCallback after paint — see the
-          DEFERRED_PRELOAD_IMAGES useEffect above. */}
+          HTML and it's flagged fetchpriority="high". Images for
+          steps 2-8 are not preloaded at all — they ship with
+          loading="lazy" on their <img> tags and only start fetching
+          when their step's component mounts. */}
       {INTRO1_IMG && (
         <link
           rel="preload"
