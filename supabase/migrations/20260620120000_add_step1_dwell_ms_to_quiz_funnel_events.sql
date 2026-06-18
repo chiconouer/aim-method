@@ -1,0 +1,35 @@
+-- =============================================================
+-- Add `step1_dwell_ms` column to quiz_funnel_events for the
+-- behavior-based bot filter. The dashboard classifies a visitor
+-- as a BOT when their max step reached is 1 AND their step-1
+-- dwell time is under 2000 ms. Real visitors (even ones who
+-- quit at step 1) stay longer — observable in Clarity recordings
+-- where the Singapore TikTok-review bots all sat at ~1 second.
+--
+-- Populated by the quiz pages: a timer starts when step 1 mounts;
+-- the elapsed ms is sent to /api/quiz-funnel/dwell when the
+-- visitor advances to step 2 OR when the page is leaving
+-- (visibilitychange / pagehide / beforeunload). The route
+-- UPDATEs all step-1 rows for that visitor where the column is
+-- currently NULL.
+--
+-- Nullable on purpose:
+--   - Visitors who are still actively on step 1 (haven't
+--     advanced or left yet) → still NULL → treated as REAL
+--     (we don't know yet that they're a bot).
+--   - Visitors who left in a way we couldn't capture (very
+--     rare with sendBeacon + 3 event types) → NULL → treated
+--     as REAL. Conservative bias.
+--   - Existing rows (created before this migration) stay NULL
+--     → treated as REAL.
+--
+-- No new index needed:
+--   - Hot path is "UPDATE … WHERE platform = ? AND visitor_id
+--     = ? AND step = 1 AND step1_dwell_ms IS NULL" — already
+--     supported by idx_quiz_funnel_events_platform_visitor.
+--
+-- Idempotent — safe to re-run via ADD COLUMN IF NOT EXISTS.
+-- =============================================================
+
+ALTER TABLE quiz_funnel_events
+  ADD COLUMN IF NOT EXISTS step1_dwell_ms INTEGER;

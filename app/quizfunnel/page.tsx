@@ -11,12 +11,20 @@
 //   - Counts are DISTINCT visitor_id per step (not events). A
 //     single visitor's repeated taps register as one person.
 //   - Server-side: the stats route fetches (visitor_id, step,
-//     country) for the platform+period and aggregates into
-//     Set<visitor_id> per step in JS. Rows with NULL visitor_id
+//     country, step1_dwell_ms) for the platform+period and
+//     aggregates per visitor in JS. Rows with NULL visitor_id
 //     (legacy, before the visitor_id migration) are excluded.
-//   - The previous "hide bots" toggle was removed: step-1-only
-//     visitors are real data we want to keep (a real person who
-//     landed and quit is part of the funnel).
+//
+// Behavior-based bot filter (default ON):
+//   - Definition: a visitor is a BOT when max(step) reached is
+//     1 AND step1_dwell_ms is set AND < 2000 ms. (Matches the
+//     Singapore TikTok-review bots in Clarity recordings.)
+//   - When ON, bots are subtracted from all funnel counts +
+//     summary cards + country breakdown SERVER-SIDE in the
+//     stats route.
+//   - When OFF, everyone is counted (raw distinct visitors).
+//   - botCount + realCount come back on the response so the
+//     toggle subtitle can show "(N excluded · <2s on step 1)".
 //
 // "By Country" breakdown:
 //   - Unknown / null-country rows are excluded entirely.
@@ -111,8 +119,12 @@ function countryDisplay(code: string): string {
 interface StatsResponse {
   platform: Platform;
   period: Period;
+  hideBots: boolean;
   counts: Record<string, number>;
   countryBreakdown: Record<string, number>;
+  botCount: number;
+  realCount: number;
+  botDwellThresholdMs: number;
 }
 
 export default function FunnelDashboardPage() {
@@ -123,10 +135,12 @@ export default function FunnelDashboardPage() {
 
   const [platform, setPlatform] = useState<Platform>("ttk");
   const [period, setPeriod] = useState<Period>("24h");
+  const [hideBots, setHideBots] = useState<boolean>(true);
   const [counts, setCounts] = useState<Record<number, number> | null>(null);
   const [breakdown, setBreakdown] = useState<Record<string, number> | null>(
     null,
   );
+  const [botCount, setBotCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
@@ -158,6 +172,7 @@ export default function FunnelDashboardPage() {
     const params = new URLSearchParams({
       platform,
       period,
+      hideBots: hideBots ? "true" : "false",
     });
 
     fetch(`/api/quiz-funnel/stats?${params.toString()}`, { cache: "no-store" })
@@ -179,6 +194,7 @@ export default function FunnelDashboardPage() {
         }
         setCounts(normalized);
         setBreakdown(json.countryBreakdown ?? {});
+        setBotCount(typeof json.botCount === "number" ? json.botCount : 0);
         setLoading(false);
       })
       .catch((err) => {
@@ -190,7 +206,7 @@ export default function FunnelDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [unlocked, platform, period]);
+  }, [unlocked, platform, period, hideBots]);
 
   function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -233,12 +249,15 @@ export default function FunnelDashboardPage() {
       <DashboardView
         platform={platform}
         period={period}
+        hideBots={hideBots}
         counts={counts}
         breakdown={breakdown}
+        botCount={botCount}
         loading={loading}
         error={fetchError}
         onPlatformChange={setPlatform}
         onPeriodChange={setPeriod}
+        onHideBotsChange={setHideBots}
       />
     </PageShell>
   );
@@ -337,21 +356,27 @@ function PasswordGate({
 function DashboardView({
   platform,
   period,
+  hideBots,
   counts,
   breakdown,
+  botCount,
   loading,
   error,
   onPlatformChange,
   onPeriodChange,
+  onHideBotsChange,
 }: {
   platform: Platform;
   period: Period;
+  hideBots: boolean;
   counts: Record<number, number> | null;
   breakdown: Record<string, number> | null;
+  botCount: number;
   loading: boolean;
   error: string | null;
   onPlatformChange: (p: Platform) => void;
   onPeriodChange: (p: Period) => void;
+  onHideBotsChange: (v: boolean) => void;
 }) {
   const step1 = counts?.[1] ?? 0;
   const step9 = counts?.[9] ?? 0;
@@ -401,6 +426,11 @@ function DashboardView({
 
       <PlatformTabs value={platform} onChange={onPlatformChange} />
       <PeriodButtons value={period} onChange={onPeriodChange} />
+      <BotToggle
+        value={hideBots}
+        botCount={botCount}
+        onChange={onHideBotsChange}
+      />
 
       <SummaryCards
         started={step1}
@@ -492,7 +522,7 @@ function PeriodButtons({
 }) {
   const periods: Period[] = ["24h", "7d", "30d", "all"];
   return (
-    <div className="flex flex-wrap justify-center gap-2 mb-6">
+    <div className="flex flex-wrap justify-center gap-2 mb-4">
       {periods.map((p) => {
         const active = p === value;
         return (
@@ -511,6 +541,54 @@ function PeriodButtons({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// Behavior-based bot toggle — switches the funnel between
+// "real visitors only" (excludes visitors whose max step is 1
+// AND step-1 dwell is < 2 s) and "everyone". When ON the
+// toggle subtitle shows the number of visitors currently being
+// filtered, so it's clear what's being excluded.
+function BotToggle({
+  value,
+  botCount,
+  onChange,
+}: {
+  value: boolean;
+  botCount: number;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="flex justify-center mb-6">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className="flex items-center gap-3 px-4 py-2 rounded-xl border border-purple-900/40 bg-[#0d0a1a] hover:bg-[#13102a] transition-colors cursor-pointer focus:outline-none focus-visible:border-purple-400"
+      >
+        <span className="text-xs font-bold tracking-widest uppercase text-gray-300">
+          Hide bots
+        </span>
+        <span className="hidden sm:inline text-[10px] text-gray-500 normal-case tracking-normal font-normal">
+          {value && botCount > 0
+            ? `(${botCount.toLocaleString()} excluded · <2s on step 1)`
+            : "(<2s on step 1)"}
+        </span>
+        <span
+          aria-hidden="true"
+          className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
+            value ? "bg-purple-600" : "bg-[#050505] border border-purple-900/40"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow ${
+              value ? "translate-x-[1.125rem]" : "translate-x-0.5"
+            }`}
+          />
+        </span>
+      </button>
     </div>
   );
 }
