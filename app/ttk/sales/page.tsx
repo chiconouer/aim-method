@@ -99,6 +99,61 @@ function recordFunnelStep(platform: "ttk" | "fb", step: number): void {
   }
 }
 
+// =============================================================
+// Per-session dedupe for the step-10 ("Reached Checkout") event.
+// A single visitor can hit any of the 4 buy buttons multiple
+// times (and Digistore's Apple Pay flow sometimes opens an extra
+// tab that re-fires the click), which would otherwise inflate
+// the dashboard's checkout count.
+//
+// Two-layer guard:
+//   1. Module-level `checkoutRecorded` boolean — fast path,
+//      survives within a single page session. Lost on reload
+//      (the page module re-evaluates) — but sessionStorage
+//      catches that case below.
+//   2. sessionStorage key — survives page reload within the
+//      same browser tab session. Cleared when the tab is
+//      closed, so a returning visitor next session DOES get
+//      counted again (which matches the "per-visitor / per-
+//      visit" semantics the gestor wants).
+//
+// sessionStorage chosen over localStorage on purpose: a returning
+// visitor on a new day SHOULD be counted again. localStorage
+// would dedupe forever per device, which would silently undercount
+// over time.
+// =============================================================
+const CHECKOUT_RECORDED_KEY = "aim_checkout_recorded";
+let checkoutRecorded = false;
+
+function isCheckoutRecorded(): boolean {
+  if (checkoutRecorded) return true;
+  try {
+    if (
+      typeof window !== "undefined" &&
+      sessionStorage.getItem(CHECKOUT_RECORDED_KEY) === "1"
+    ) {
+      checkoutRecorded = true;
+      return true;
+    }
+  } catch {
+    // sessionStorage blocked (private mode / hostile extension).
+    // Module ref alone provides dedupe for the rest of this
+    // page session; lost on reload, accepted edge case.
+  }
+  return false;
+}
+
+function markCheckoutRecorded(): void {
+  checkoutRecorded = true;
+  try {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(CHECKOUT_RECORDED_KEY, "1");
+    }
+  } catch {
+    // sessionStorage blocked — see comment in isCheckoutRecorded.
+  }
+}
+
 export default function AdsSalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
@@ -108,17 +163,24 @@ export default function AdsSalesPage() {
 
   // Shared onClick for all 4 buy buttons. Defensive: if for any
   // reason CHECKOUT_URL is empty, preventDefault stops the dead
-  // navigation. Otherwise the beacon fires and we let the
-  // default <a> behavior run — sendBeacon was specifically
-  // designed for "send before navigation tears the page down" so
-  // it never holds up the redirect, and the try/catch inside
-  // recordFunnelStep guarantees the click handler never throws.
+  // navigation. The redirect ALWAYS proceeds otherwise — only
+  // the analytics beacon is deduped. sendBeacon never holds up
+  // the redirect (queued, fire-and-forget), and the try/catch
+  // inside recordFunnelStep guarantees the click handler never
+  // throws.
   function handleCheckoutClick(e: React.MouseEvent<HTMLAnchorElement>) {
     if (!hasCheckout) {
       e.preventDefault();
       return;
     }
-    recordFunnelStep("ttk", 10);
+    // Per-session dedupe: only the FIRST buy-button click in this
+    // tab session records step 10. Subsequent clicks (other CTA
+    // positions, Apple Pay re-tabs, etc.) still navigate to
+    // checkout — they just don't fire the beacon again.
+    if (!isCheckoutRecorded()) {
+      markCheckoutRecorded();
+      recordFunnelStep("ttk", 10);
+    }
   }
 
   function toggleFaq(idx: number) {
