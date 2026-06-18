@@ -96,7 +96,7 @@ export default function FunnelDashboardPage() {
   const [passwordError, setPasswordError] = useState(false);
 
   const [platform, setPlatform] = useState<Platform>("ttk");
-  const [period, setPeriod] = useState<Period>("7d");
+  const [period, setPeriod] = useState<Period>("24h");
   const [country, setCountry] = useState<string>(ALL_COUNTRIES);
   const [counts, setCounts] = useState<Record<number, number> | null>(null);
   const [breakdown, setBreakdown] = useState<Record<string, number> | null>(
