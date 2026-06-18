@@ -65,9 +65,11 @@ const PERIOD_LABELS: Record<Period, string> = {
   all: "All time",
 };
 
-// Step labels — 1..8 are quiz steps, 9 is the post-quiz VSL view.
+// Step labels — 1..8 are quiz steps, 9 is the post-quiz VSL view,
+// 10 is the visitor clicking the buy button on the sales page.
 function stepLabel(step: number): string {
   if (step === 9) return "Reached VSL";
+  if (step === 10) return "Reached Checkout";
   return `Step ${step}`;
 }
 
@@ -150,7 +152,7 @@ export default function FunnelDashboardPage() {
         if (cancelled) return;
         // API returns counts keyed by string — normalize to numbers.
         const normalized: Record<number, number> = {};
-        for (let s = 1; s <= 9; s++) {
+        for (let s = 1; s <= 10; s++) {
           const k = String(s);
           normalized[s] =
             typeof json.counts?.[k] === "number" ? json.counts[k] : 0;
@@ -353,7 +355,7 @@ function DashboardView({
     if (!counts) return null;
     let worstStep: number | null = null;
     let worstDropPct = 0;
-    for (let s = 2; s <= 9; s++) {
+    for (let s = 2; s <= 10; s++) {
       const prev = counts[s - 1];
       const curr = counts[s];
       if (prev > 0 && curr <= prev) {
@@ -579,7 +581,7 @@ function SummaryCards({
         accent="green"
       />
       <SummaryCard
-        label="Conversion"
+        label="Quiz Completion Rate"
         value={`${conversionPct.toFixed(1)}%`}
         accent="purple"
       />
@@ -625,8 +627,9 @@ function FunnelBars({
   dim: boolean;
 }) {
   const step1 = counts[1] ?? 0;
-  // Order: 1, 2, 3, 4, 5, 6, 7, 8, 9. (9 = Reached VSL.)
-  const steps = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  // Order: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10.
+  // (9 = Reached VSL; 10 = Reached Checkout, the buy-button click.)
+  const steps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   return (
     <div
       className={`rounded-2xl border border-purple-900/30 p-4 sm:p-5 transition-opacity ${
@@ -642,12 +645,21 @@ function FunnelBars({
           const count = counts[s] ?? 0;
           const retentionPct = step1 > 0 ? (count / step1) * 100 : 0;
           const isWorstDrop = s === biggestDropStep;
+          // Step-to-step conversion: % of the PREVIOUS step that made
+          // it to this one. Null for step 1 (no previous) and for any
+          // case where the previous step had zero visitors (no
+          // denominator). The bar renders the secondary label only
+          // when fromPrevPct is non-null so step 1 stays uncluttered.
+          const prevCount = s > 1 ? counts[s - 1] ?? 0 : 0;
+          const fromPrevPct =
+            s > 1 && prevCount > 0 ? (count / prevCount) * 100 : null;
           return (
             <FunnelBar
               key={s}
               label={stepLabel(s)}
               count={count}
               retentionPct={retentionPct}
+              fromPrevPct={fromPrevPct}
               isWorstDrop={isWorstDrop}
             />
           );
@@ -669,11 +681,13 @@ function FunnelBar({
   label,
   count,
   retentionPct,
+  fromPrevPct,
   isWorstDrop,
 }: {
   label: string;
   count: number;
   retentionPct: number;
+  fromPrevPct: number | null;
   isWorstDrop: boolean;
 }) {
   // Clamp the bar width to a small floor so empty steps still
@@ -688,7 +702,7 @@ function FunnelBar({
     <div>
       <div className="flex items-baseline justify-between mb-1">
         <span className="text-sm font-bold text-white">{label}</span>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-gray-400 text-right">
           <span
             className={`font-black ${isWorstDrop ? "text-red-400" : "text-purple-300"}`}
           >
@@ -697,6 +711,14 @@ function FunnelBar({
           <span className="text-gray-500">
             · {count.toLocaleString()} {count === 1 ? "person" : "people"}
           </span>
+          {fromPrevPct !== null && (
+            // Step-to-step conversion — small secondary line so you
+            // can see where the biggest drop between consecutive
+            // steps is, beyond just the % vs step 1.
+            <span className="block text-[10px] text-gray-600 mt-0.5">
+              {fromPrevPct.toFixed(1)}% from prev
+            </span>
+          )}
         </span>
       </div>
       <div className="h-7 rounded-lg bg-[#050505] border border-purple-900/30 overflow-hidden">

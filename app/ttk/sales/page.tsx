@@ -64,12 +64,62 @@ const FAQS = [
 const CHECKOUT_URL =
   "https://www.checkout-ds24.com/product/688952?aff=SpackReach2&hide_plans=";
 
+// =============================================================
+// Funnel analytics beacon — POST to /api/quiz-funnel for the
+// "reached checkout" event (step 10) when the visitor clicks any
+// of the 4 buy buttons on this page. Same fire-and-forget shape
+// the quiz pages use. Browser never touches Supabase directly;
+// the route uses the service-role client, and the
+// quiz_funnel_events table is RLS-locked to service_role only.
+//
+// Prefers navigator.sendBeacon (queued by the browser, so it
+// fires even when target="_blank" opens a new tab AND when the
+// current tab itself is in mid-teardown). Falls back to fetch +
+// keepalive. Wrapped in try/catch so any browser quirk silently
+// no-ops — analytics ingestion must NEVER break the checkout
+// redirect.
+// =============================================================
+function recordFunnelStep(platform: "ttk" | "fb", step: number): void {
+  try {
+    if (typeof window === "undefined") return;
+    const body = JSON.stringify({ platform, step });
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+      const blob = new Blob([body], { type: "application/json" });
+      const ok = navigator.sendBeacon("/api/quiz-funnel", blob);
+      if (ok) return;
+    }
+    fetch("/api/quiz-funnel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // Silent — analytics failures must never break the checkout.
+  }
+}
+
 export default function AdsSalesPage() {
   const lockedRef = useRef<HTMLDivElement>(null);
   const scrollIndicatorRef = useRef<HTMLDivElement>(null);
   const fixedBtnRef = useRef<HTMLDivElement>(null);
   const openFaq = useRef<number | null>(null);
   const hasCheckout = CHECKOUT_URL.length > 0;
+
+  // Shared onClick for all 4 buy buttons. Defensive: if for any
+  // reason CHECKOUT_URL is empty, preventDefault stops the dead
+  // navigation. Otherwise the beacon fires and we let the
+  // default <a> behavior run — sendBeacon was specifically
+  // designed for "send before navigation tears the page down" so
+  // it never holds up the redirect, and the try/catch inside
+  // recordFunnelStep guarantees the click handler never throws.
+  function handleCheckoutClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    if (!hasCheckout) {
+      e.preventDefault();
+      return;
+    }
+    recordFunnelStep("ttk", 10);
+  }
 
   function toggleFaq(idx: number) {
     const body = document.getElementById(`faq-body-${idx}`);
@@ -173,7 +223,7 @@ export default function AdsSalesPage() {
             href={hasCheckout ? CHECKOUT_URL : "#"}
             target={hasCheckout ? "_blank" : undefined}
             rel={hasCheckout ? "noopener noreferrer" : undefined}
-            onClick={(e) => { if (!hasCheckout) e.preventDefault(); }}
+            onClick={handleCheckoutClick}
             aria-disabled={!hasCheckout}
             className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden smartplayer-click-event"
             style={{
@@ -286,7 +336,7 @@ export default function AdsSalesPage() {
               href={hasCheckout ? CHECKOUT_URL : "#"}
               target={hasCheckout ? "_blank" : undefined}
               rel={hasCheckout ? "noopener noreferrer" : undefined}
-              onClick={(e) => { if (!hasCheckout) e.preventDefault(); }}
+              onClick={handleCheckoutClick}
               aria-disabled={!hasCheckout}
               className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden smartplayer-click-event"
               style={{
@@ -349,7 +399,7 @@ export default function AdsSalesPage() {
             href={hasCheckout ? CHECKOUT_URL : "#"}
             target={hasCheckout ? "_blank" : undefined}
             rel={hasCheckout ? "noopener noreferrer" : undefined}
-            onClick={(e) => { if (!hasCheckout) e.preventDefault(); }}
+            onClick={handleCheckoutClick}
             aria-disabled={!hasCheckout}
             className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mb-3 relative overflow-hidden smartplayer-click-event"
             style={{
@@ -376,7 +426,7 @@ export default function AdsSalesPage() {
           href={hasCheckout ? CHECKOUT_URL : "#"}
           target={hasCheckout ? "_blank" : undefined}
           rel={hasCheckout ? "noopener noreferrer" : undefined}
-          onClick={(e) => { if (!hasCheckout) e.preventDefault(); }}
+          onClick={handleCheckoutClick}
           aria-disabled={!hasCheckout}
           className="flex items-center justify-between max-w-lg mx-auto rounded-xl px-5 py-3 text-white relative overflow-hidden smartplayer-click-event"
           style={{ background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)", boxShadow: "0 0 28px rgba(124,58,237,0.4)" }}
