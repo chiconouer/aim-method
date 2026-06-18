@@ -1,21 +1,28 @@
 // =============================================================
-// /quizfunnel — quiz-funnel analytics dashboard (FASE 2)
+// /quizfunnel — quiz-funnel analytics dashboard
 // -------------------------------------------------------------
 // Reads aggregated step counts from /api/quiz-funnel/stats and
 // renders horizontal funnel bars per platform (/ttk/quiz or
-// /fb/quiz), per time window, and (since the country PR) per
-// country filter. The browser NEVER queries Supabase directly —
-// that route is the only reader, and it uses the service-role
-// client server-side.
+// /fb/quiz) and per time window. The browser NEVER queries
+// Supabase directly — that route is the only reader, and it
+// uses the service-role client server-side.
 //
-// Country support:
-//   - Country dropdown above the funnel bars filters the bars
-//     to ONE country at a time. Default "All countries".
-//   - The "By Country" breakdown section under the bars shows
-//     ALL countries for the platform+period (unfiltered),
-//     sorted by step-1 count desc. Drives the dropdown options.
-//   - Country filter / breakdown are computed server-side by
-//     the stats route using the service-role client.
+// Bot filter (default ON):
+//   - "Hide bots (only real visitors)" toggle at the top.
+//   - When ON, the funnel's step-1 baseline is replaced with the
+//     step-2 count server-side. Bots that hit step 1 and never
+//     advanced are silently filtered out. Steps 2..10 keep
+//     their raw counts.
+//   - When OFF, the funnel shows every event including the
+//     bot-only step-1 hits.
+//
+// "By Country" breakdown:
+//   - Unknown / null-country rows are excluded entirely.
+//   - Percentages computed against the total of KNOWN
+//     countries only (excludes unknown from the denominator).
+//   - Country codes are rendered as full English names via
+//     Intl.DisplayNames (falls back to the code if the API is
+//     unavailable in the visitor's runtime).
 //
 // Standalone route on purpose: lives at top-level /quizfunnel
 // (NOT under /dashboard) so it does not inherit the members-area
@@ -25,17 +32,15 @@
 //
 // Light client-only password gate: hardcoded "AIM1234", stored
 // in localStorage so the dashboard stays unlocked on this
-// device/browser permanently (no re-prompt after a tab/browser
-// restart). This is not real auth — just a friction layer so a
-// leaked dashboard URL isn't drive-by accessible. Anyone with
-// devtools can find the literal in the bundle; accepted trade-
-// off (per the FASE-2 brief). Clearing site data revokes it.
+// device/browser permanently. This is not real auth — just a
+// friction layer so a leaked dashboard URL isn't drive-by
+// accessible. Anyone with devtools can find the literal in the
+// bundle; accepted trade-off.
 //
 // Visual identity: dark page background (#050505), purple-accent
 // cards with the #0d0a1a → #080810 gradient, green highlights
 // for "positive" numbers, red highlight for the biggest drop-off
-// step. Same tokens used across /sales, /ttk/quiz, /fb/quiz so
-// the dashboard reads as part of the same product.
+// step. Same tokens used across /sales, /ttk/quiz, /fb/quiz.
 // =============================================================
 
 "use client";
@@ -45,11 +50,10 @@ import { useEffect, useMemo, useState } from "react";
 const PASSWORD = "AIM1234";
 const STORAGE_KEY = "aim_funnel_unlocked";
 
-// Server-side sentinel meaning "country IS NULL". Kept in sync
-// with parseCountryFilter() in app/api/quiz-funnel/stats/route.ts.
+// Server-side sentinel meaning "country IS NULL". Excluded from
+// the breakdown UI but the constant stays in scope for the
+// filter that drops it.
 const UNKNOWN_COUNTRY = "__unknown__";
-// Special UI value for the country dropdown meaning "no filter".
-const ALL_COUNTRIES = "all";
 
 type Platform = "ttk" | "fb";
 type Period = "24h" | "7d" | "30d" | "all";
@@ -73,21 +77,41 @@ function stepLabel(step: number): string {
   return `Step ${step}`;
 }
 
-// Display label for a country code in the breakdown / dropdown.
-// "__unknown__" is the server sentinel for country IS NULL; show
-// as "Unknown" in the UI. Everything else is shown verbatim
-// (ISO 3166-1 alpha-2 — adding full names would require a code-
-// to-name map; can be added later if useful).
+// Cached Intl.DisplayNames instance — created once on first
+// call to avoid the allocation cost per render. Falls back to
+// the ISO code when the runtime doesn't expose the API (very
+// old browsers) so we never display a blank cell.
+let displayNamesInstance: Intl.DisplayNames | null = null;
+function getDisplayNames(): Intl.DisplayNames | null {
+  if (displayNamesInstance) return displayNamesInstance;
+  try {
+    if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+      displayNamesInstance = new Intl.DisplayNames(["en"], { type: "region" });
+      return displayNamesInstance;
+    }
+  } catch {
+    /* fall through */
+  }
+  return null;
+}
+
 function countryDisplay(code: string): string {
   if (code === UNKNOWN_COUNTRY) return "Unknown";
+  try {
+    const name = getDisplayNames()?.of(code);
+    if (name && name !== code) return name;
+  } catch {
+    /* fall through to the code */
+  }
   return code;
 }
 
 interface StatsResponse {
   platform: Platform;
   period: Period;
-  country: string | null;
+  hideBots: boolean;
   counts: Record<string, number>;
+  rawStep1Count?: number;
   countryBreakdown: Record<string, number>;
 }
 
@@ -99,7 +123,7 @@ export default function FunnelDashboardPage() {
 
   const [platform, setPlatform] = useState<Platform>("ttk");
   const [period, setPeriod] = useState<Period>("24h");
-  const [country, setCountry] = useState<string>(ALL_COUNTRIES);
+  const [hideBots, setHideBots] = useState<boolean>(true);
   const [counts, setCounts] = useState<Record<number, number> | null>(null);
   const [breakdown, setBreakdown] = useState<Record<string, number> | null>(
     null,
@@ -135,10 +159,8 @@ export default function FunnelDashboardPage() {
     const params = new URLSearchParams({
       platform,
       period,
+      hideBots: hideBots ? "true" : "false",
     });
-    if (country !== ALL_COUNTRIES) {
-      params.set("country", country);
-    }
 
     fetch(`/api/quiz-funnel/stats?${params.toString()}`, { cache: "no-store" })
       .then(async (res) => {
@@ -170,7 +192,7 @@ export default function FunnelDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [unlocked, platform, period, country]);
+  }, [unlocked, platform, period, hideBots]);
 
   function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -213,20 +235,14 @@ export default function FunnelDashboardPage() {
       <DashboardView
         platform={platform}
         period={period}
-        country={country}
+        hideBots={hideBots}
         counts={counts}
         breakdown={breakdown}
         loading={loading}
         error={fetchError}
-        onPlatformChange={(p) => {
-          // Reset country when platform changes — countries observed
-          // on TikTok may not exist on Facebook (or vice versa) so the
-          // active selection could become a "no data" sliver.
-          setCountry(ALL_COUNTRIES);
-          setPlatform(p);
-        }}
+        onPlatformChange={setPlatform}
         onPeriodChange={setPeriod}
-        onCountryChange={setCountry}
+        onHideBotsChange={setHideBots}
       />
     </PageShell>
   );
@@ -319,31 +335,31 @@ function PasswordGate({
 }
 
 // ───────────────────────────────────────────────────────────────
-// Dashboard — title, tabs (platform), period buttons, country
-// filter, summary cards, funnel bars, country breakdown.
+// Dashboard — title, tabs (platform), period buttons, bot toggle,
+// summary cards, funnel bars, country breakdown.
 // ───────────────────────────────────────────────────────────────
 function DashboardView({
   platform,
   period,
-  country,
+  hideBots,
   counts,
   breakdown,
   loading,
   error,
   onPlatformChange,
   onPeriodChange,
-  onCountryChange,
+  onHideBotsChange,
 }: {
   platform: Platform;
   period: Period;
-  country: string;
+  hideBots: boolean;
   counts: Record<number, number> | null;
   breakdown: Record<string, number> | null;
   loading: boolean;
   error: string | null;
   onPlatformChange: (p: Platform) => void;
   onPeriodChange: (p: Period) => void;
-  onCountryChange: (c: string) => void;
+  onHideBotsChange: (v: boolean) => void;
 }) {
   const step1 = counts?.[1] ?? 0;
   const step9 = counts?.[9] ?? 0;
@@ -369,17 +385,20 @@ function DashboardView({
     return worstStep;
   }, [counts]);
 
-  // Sorted country list for both dropdown options + breakdown rows.
-  const sortedBreakdown = useMemo(() => {
+  // Known countries only — exclude the UNKNOWN_COUNTRY bucket
+  // entirely from BOTH the rendered rows AND the percentage
+  // denominator, per the spec.
+  const knownBreakdown = useMemo(() => {
     if (!breakdown) return [] as Array<{ code: string; count: number }>;
     return Object.entries(breakdown)
+      .filter(([code]) => code !== UNKNOWN_COUNTRY)
       .map(([code, count]) => ({ code, count }))
       .sort((a, b) => b.count - a.count);
   }, [breakdown]);
 
-  const totalForBreakdown = useMemo(
-    () => sortedBreakdown.reduce((s, r) => s + r.count, 0),
-    [sortedBreakdown],
+  const totalKnown = useMemo(
+    () => knownBreakdown.reduce((s, r) => s + r.count, 0),
+    [knownBreakdown],
   );
 
   return (
@@ -390,13 +409,7 @@ function DashboardView({
 
       <PlatformTabs value={platform} onChange={onPlatformChange} />
       <PeriodButtons value={period} onChange={onPeriodChange} />
-
-      <CountryFilter
-        value={country}
-        options={sortedBreakdown}
-        total={totalForBreakdown}
-        onChange={onCountryChange}
-      />
+      <BotToggle value={hideBots} onChange={onHideBotsChange} />
 
       <SummaryCards
         started={step1}
@@ -427,10 +440,10 @@ function DashboardView({
         />
       )}
 
-      {breakdown && sortedBreakdown.length > 0 && (
+      {breakdown && knownBreakdown.length > 0 && (
         <CountryBreakdown
-          rows={sortedBreakdown}
-          total={totalForBreakdown}
+          rows={knownBreakdown}
+          total={totalKnown}
           dim={loading}
         />
       )}
@@ -511,54 +524,45 @@ function PeriodButtons({
   );
 }
 
-// Native <select> styled with the dark/purple theme. Native is the
-// most mobile-friendly choice for a "pick from a list" input — iOS
-// and Android render their own touch-optimized pickers. Options are
-// driven by the (unfiltered) country breakdown so they reflect what
-// the data actually contains for the current platform+period.
-function CountryFilter({
+// "Hide bots" toggle — switches the funnel between "real visitors"
+// (step 1 baseline replaced with step 2 count server-side) and
+// "everyone" (raw counts). Touch target is the entire label so
+// the switch is comfortably tappable on mobile.
+function BotToggle({
   value,
-  options,
-  total,
   onChange,
 }: {
-  value: string;
-  options: Array<{ code: string; count: number }>;
-  total: number;
-  onChange: (c: string) => void;
+  value: boolean;
+  onChange: (v: boolean) => void;
 }) {
   return (
     <div className="flex justify-center mb-6">
-      <label className="flex items-center gap-2 text-xs font-bold tracking-widest uppercase text-gray-500">
-        Country
-        <select
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="rounded-lg border border-purple-900/40 bg-[#0d0a1a] text-white text-xs font-bold tracking-wide px-3 py-1.5 focus:outline-none focus:border-purple-400 transition-colors cursor-pointer"
-          style={{
-            // Override browser default arrow with a tiny chevron so it
-            // matches the dark theme. -webkit-appearance hides the
-            // native arrow on iOS Safari.
-            WebkitAppearance: "none",
-            MozAppearance: "none",
-            appearance: "none",
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23a78bfa' d='M0 0l5 6 5-6z'/></svg>\")",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "right 0.6rem center",
-            paddingRight: "1.75rem",
-          }}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className="flex items-center gap-3 px-4 py-2 rounded-xl border border-purple-900/40 bg-[#0d0a1a] hover:bg-[#13102a] transition-colors cursor-pointer focus:outline-none focus-visible:border-purple-400"
+      >
+        <span className="text-xs font-bold tracking-widest uppercase text-gray-300">
+          Hide bots
+        </span>
+        <span className="hidden sm:inline text-[10px] text-gray-500 normal-case tracking-normal font-normal">
+          (only real visitors)
+        </span>
+        <span
+          aria-hidden="true"
+          className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
+            value ? "bg-purple-600" : "bg-[#050505] border border-purple-900/40"
+          }`}
         >
-          <option value={ALL_COUNTRIES}>
-            All countries{total > 0 ? ` (${total.toLocaleString()})` : ""}
-          </option>
-          {options.map(({ code, count }) => (
-            <option key={code} value={code}>
-              {countryDisplay(code)} ({count.toLocaleString()})
-            </option>
-          ))}
-        </select>
-      </label>
+          <span
+            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow ${
+              value ? "translate-x-[1.125rem]" : "translate-x-0.5"
+            }`}
+          />
+        </span>
+      </button>
     </div>
   );
 }
@@ -738,10 +742,12 @@ function FunnelBar({
 }
 
 // ───────────────────────────────────────────────────────────────
-// Country breakdown — list of countries with count + share of
-// total step-1 events. Always shows ALL countries (not filtered
-// by the country dropdown above) so the user can see where they
-// could switch the filter to.
+// Country breakdown — list of known countries with count + share
+// of total known-country visitors. Unknown / null country bucket
+// is excluded entirely (filtered upstream in DashboardView).
+// Country codes render as full English names via Intl.DisplayNames
+// (e.g. "United States", "Brazil", "Singapore", "Belgium"), with
+// the raw code as fallback if the API isn't available.
 // ───────────────────────────────────────────────────────────────
 function CountryBreakdown({
   rows,
@@ -768,7 +774,7 @@ function CountryBreakdown({
           By <span className="text-purple-400">Country</span>
         </h2>
         <span className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">
-          Step 1 visitors
+          Known countries only
         </span>
       </div>
       <div className="flex flex-col gap-2.5">

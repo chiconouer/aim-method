@@ -1,20 +1,32 @@
 // =============================================================
-// GET /api/quiz-funnel/stats?platform=ttk&period=7d[&country=US]
+// GET /api/quiz-funnel/stats?platform=ttk&period=7d[&hideBots=true]
 // -------------------------------------------------------------
 // Read-side counterpart to /api/quiz-funnel. Returns one count
 // per step (1..10) for the requested platform within the
-// requested time window, plus an unfiltered per-country
-// breakdown of step-1 events for the same platform + period.
-// Step 10 = "reached checkout" — fired by the sales pages when
-// the visitor clicks the Digistore buy button.
+// requested time window, plus a per-country breakdown of the
+// step-1 (or step-2 when hideBots=true) events for the same
+// platform + period.
 //
-// Country filter:
-//   ?country=US      → step counts filtered to country = 'US'
-//   ?country=__unknown__ → step counts where country IS NULL
-//   (omit param)      → step counts include all countries
-//   The countryBreakdown is ALWAYS computed unfiltered so the
-//   dashboard dropdown stays populated regardless of the active
-//   country filter.
+// Step semantics:
+//   1..8  quiz step views
+//   9     reached the /[platform]/sales VSL
+//   10    clicked the buy button on /[platform]/sales (deduped
+//         per visitor session client-side)
+//
+// Bot filter:
+//   ?hideBots=true (default)  → counts[1] is replaced with
+//                                counts[2]. Practical semantic:
+//                                "treat the step-2 reachers as
+//                                the real base/population" since
+//                                bots (mostly TikTok ad-review
+//                                crawlers) hit step 1 and never
+//                                advance. Steps 2..10 keep their
+//                                raw counts.
+//   ?hideBots=false           → all counts are raw (bot
+//                                visitors included in step 1).
+//   The country breakdown uses step 2 events when hideBots=true
+//   (matches the filtered population) and step 1 events
+//   otherwise.
 //
 // Auth: uses the SERVICE ROLE client (supabaseAdmin) — the
 // quiz_funnel_events table is RLS-locked and the anon role has
@@ -23,12 +35,11 @@
 //
 // Performance:
 //   - 10 parallel HEAD-style count queries for the funnel bars,
-//     each hitting (platform, step) [+ country] indexes.
+//     each hitting the (platform, step) index.
 //   - 1 extra query that fetches just the `country` column for
-//     step-1 rows in the period (no group-by in PostgREST — we
-//     fetch then bucket in JS). Capped at 100k rows which is
-//     way above current funnel volume; covers 24h/7d/30d/all
-//     windows without paginating.
+//     the breakdown's anchor step (1 or 2). PostgREST doesn't
+//     expose GROUP BY so we fetch then bucket in JS; capped at
+//     100k rows, comfortably above current funnel volume.
 // =============================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -59,24 +70,19 @@ function cutoffFor(period: Period): string | null {
   return new Date(Date.now() - ms[period]).toISOString();
 }
 
-// Validate the country query param. Returns null for "no filter".
-// Returns "__unknown__" sentinel to mean "country IS NULL". Otherwise
-// returns a 2-letter ISO code (uppercased). Anything else → null
-// (treated as "no filter") so a junk URL can't quietly produce an
-// always-empty funnel.
-function parseCountryFilter(v: string | null): string | null {
-  if (!v) return null;
-  if (v === UNKNOWN_COUNTRY) return UNKNOWN_COUNTRY;
-  const trimmed = v.trim().toUpperCase();
-  if (!/^[A-Z]{2}$/.test(trimmed)) return null;
-  return trimmed;
+// hideBots defaults to true (filter out single-step bots).
+// Accepted truthy values: "true", "1". Anything else → false.
+// An absent param keeps the default (true).
+function parseHideBots(v: string | null): boolean {
+  if (v === null) return true;
+  return v === "true" || v === "1";
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const platform = searchParams.get("platform");
   const period = searchParams.get("period");
-  const country = parseCountryFilter(searchParams.get("country"));
+  const hideBots = parseHideBots(searchParams.get("hideBots"));
 
   if (!isPlatform(platform) || !isPeriod(period)) {
     return NextResponse.json(
@@ -88,9 +94,9 @@ export async function GET(req: NextRequest) {
   const cutoff = cutoffFor(period);
 
   // ───── Per-step funnel counts ─────
-  // 9 parallel index lookups — one per step. head:true means no rows
-  // ship over the wire, just the count. Each query is wrapped in an
-  // async IIFE so the array holds real Promises (Supabase's
+  // 10 parallel index lookups — one per step. head:true means no
+  // rows ship over the wire, just the count. Each query is wrapped
+  // in an async IIFE so the array holds real Promises (Supabase's
   // PostgrestFilterBuilder is a thenable, not a Promise).
   const counts: Record<number, number> = {};
   for (let s = 1; s <= 10; s++) counts[s] = 0;
@@ -107,8 +113,6 @@ export async function GET(req: NextRequest) {
           .eq("platform", platform)
           .eq("step", s);
         if (cutoff) q = q.gte("created_at", cutoff);
-        if (country === UNKNOWN_COUNTRY) q = q.is("country", null);
-        else if (country) q = q.eq("country", country);
         const { count, error } = await q;
         return {
           step: s,
@@ -119,12 +123,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // ───── Per-country breakdown of step-1 events ─────
-  // Always unfiltered by country so the dashboard dropdown stays
-  // populated even when a country filter is active. Fetch just the
-  // `country` column for the platform+period, bucket in JS. PostgREST
-  // doesn't expose GROUP BY natively, but at the funnel's volume the
-  // 100k-row ceiling is generous (current production is ~hundreds).
+  // ───── Per-country breakdown ─────
+  // Anchored to step 1 by default; switches to step 2 when
+  // hideBots=true so the breakdown stays consistent with the
+  // human-only funnel (bots aren't in step 2). Fetch just the
+  // `country` column for the chosen step + platform + period,
+  // bucket in JS. 100k-row cap is way above current funnel volume.
+  const breakdownStep = hideBots ? 2 : 1;
   const breakdownPromise = (async (): Promise<{
     counts: Record<string, number>;
     error: string | null;
@@ -133,7 +138,7 @@ export async function GET(req: NextRequest) {
       .from("quiz_funnel_events")
       .select("country")
       .eq("platform", platform)
-      .eq("step", 1)
+      .eq("step", breakdownStep)
       .limit(100000);
     if (cutoff) q = q.gte("created_at", cutoff);
     const { data, error } = await q;
@@ -155,7 +160,7 @@ export async function GET(req: NextRequest) {
   for (const r of countResults) {
     if (r.error) {
       console.error(
-        `[quiz-funnel-stats] count failed platform=${platform} period=${period} country=${country ?? "all"} step=${r.step} err=${r.error}`,
+        `[quiz-funnel-stats] count failed platform=${platform} period=${period} hideBots=${hideBots} step=${r.step} err=${r.error}`,
       );
     } else {
       counts[r.step] = r.count;
@@ -163,16 +168,28 @@ export async function GET(req: NextRequest) {
   }
   if (breakdownResult.error) {
     console.error(
-      `[quiz-funnel-stats] breakdown failed platform=${platform} period=${period} err=${breakdownResult.error}`,
+      `[quiz-funnel-stats] breakdown failed platform=${platform} period=${period} hideBots=${hideBots} err=${breakdownResult.error}`,
     );
+  }
+
+  // Apply the hideBots adjustment AFTER all queries land: replace
+  // counts[1] with counts[2] so the funnel baseline becomes "real
+  // visitors who advanced past the intro guess". counts[2..10]
+  // unchanged. We persist the raw step-1 number under
+  // `rawCounts[1]` for transparency on the wire (debugging /
+  // future "compare with/without bots" UI).
+  const rawStep1 = counts[1];
+  if (hideBots) {
+    counts[1] = counts[2];
   }
 
   return NextResponse.json(
     {
       platform,
       period,
-      country: country ?? null,
+      hideBots,
       counts,
+      rawStep1Count: rawStep1,
       countryBreakdown: breakdownResult.counts,
     },
     {
