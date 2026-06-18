@@ -711,10 +711,12 @@ function IntroTwoTileRow({
   );
 }
 
-// Full-screen modal popup shown after a guess. Always carries the same
-// shape (icon + title + Continue button) — the kind prop just flips
-// color + copy. Continue is the only way to dismiss.
+// Full-screen modal popup shown after a guess. Auto-dismisses after
+// ~2s — no Continue button, no tap required. The kind prop just
+// flips color + copy.
 type PopupKind = "correct" | "wrong";
+
+const POPUP_AUTO_ADVANCE_MS = 2000;
 
 function GuessPopup({
   kind,
@@ -727,6 +729,19 @@ function GuessPopup({
   subtitle: string;
   onContinue: () => void;
 }) {
+  // Hold onContinue in a ref so the auto-advance timeout always calls
+  // the latest version without resetting the 2s clock when the parent
+  // re-renders. A single timeout per mount; cleared on unmount. The
+  // user spec: "doesn't double-fire or skip".
+  const onContinueRef = useRef(onContinue);
+  useEffect(() => {
+    onContinueRef.current = onContinue;
+  }, [onContinue]);
+  useEffect(() => {
+    const t = setTimeout(() => onContinueRef.current(), POPUP_AUTO_ADVANCE_MS);
+    return () => clearTimeout(t);
+  }, []);
+
   const isCorrect = kind === "correct";
   const accent = isCorrect ? "34,197,94" : "239,68,68"; // green / red as rgb
   return (
@@ -756,8 +771,7 @@ function GuessPopup({
         >
           {title}
         </h2>
-        <p className="text-sm text-gray-400 mb-2">{subtitle}</p>
-        <ContinueButton label="Continue →" onClick={onContinue} />
+        <p className="text-sm text-gray-400">{subtitle}</p>
       </div>
     </div>
   );
@@ -896,9 +910,10 @@ function Step3({
 function Step4({ onContinue }: { onContinue: () => void }) {
   return (
     <>
-      <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight text-center mb-5">
-        Make <span className="text-green-400">$200 to $500</span> a day with an
-        AI Model
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-5">
+        You couldn&apos;t tell which one was real. Now imagine making{" "}
+        <span className="text-green-400">$200&ndash;$500</span> a day creating
+        AI models exactly like those.
       </h1>
       {STEP4_IMAGE_URL ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -924,10 +939,9 @@ function Step4({ onContinue }: { onContinue: () => void }) {
 function Step5({ onContinue }: { onContinue: () => void }) {
   return (
     <>
-      <h1 className="text-base sm:text-lg font-black text-white leading-tight text-center mb-2">
-        In a moment, I&apos;ll show you how to build your own model in under{" "}
-        <span className="text-purple-400">30 minutes</span> with simple, free
-        tools.
+      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight text-center mb-3">
+        This is just <span className="text-purple-400">ONE</span> of the
+        accounts I have.
       </h1>
       {/* Two images side-by-side. Inline <img> with max-h cap + max-w-full
           so each image renders at natural aspect (no crop, no letterbox)
@@ -982,7 +996,7 @@ function Step6({ onContinue }: { onContinue: () => void }) {
         influencer. 👇
       </h1>
       <VideoPlaceholder url={STEP6_VIDEO_URL} />
-      <ContinueButton label="I'll use it responsibly" onClick={onContinue} />
+      <ContinueButton label="I want to make $200/day" onClick={onContinue} />
     </>
   );
 }
@@ -1029,7 +1043,7 @@ function Step8({ onContinue }: { onContinue: () => void }) {
       ) : (
         <ImagePlaceholder url="" alt="Class preview" />
       )}
-      <ContinueButton label="I want to access the class" onClick={onContinue} />
+      <ContinueButton label="I want access to this" onClick={onContinue} />
     </>
   );
 }
