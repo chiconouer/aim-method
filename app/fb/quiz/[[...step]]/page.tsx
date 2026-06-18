@@ -32,6 +32,7 @@ import { useRouter } from "next/navigation";
 import type confetti from "canvas-confetti";
 import { FbTracking } from "@/components/FbTracking";
 import { getVisitorId } from "@/lib/visitor_id";
+import { markStep1Mounted, fireStep1Dwell } from "@/lib/step1_dwell";
 
 // Microsoft Clarity exposes window.clarity as a function once the
 // tag script (loaded by <FbTracking />) has hydrated. Optional
@@ -1095,8 +1096,36 @@ export default function FbQuizPage({
       // per step view per session in production (React strict mode
       // may double-fire in dev — acceptable, dev only).
       recordFunnelStep("fb", step);
+      // Mark step-1 mount time for the dwell-based bot filter.
+      // markStep1Mounted no-ops on SSR and resets the dedupe flag,
+      // so re-entering step 1 (rare — happens only on full reload)
+      // arms a fresh measurement.
+      if (step === 1) markStep1Mounted();
     }
   }, [step]);
+
+  // Page-leave listeners that fire the step-1 dwell beacon when the
+  // visitor closes the tab, switches apps, or otherwise leaves
+  // step 1 without advancing. fireStep1Dwell is idempotent (single
+  // send per visit) so all three listeners pointing at it is safe.
+  // Cleanup removes them on unmount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    function flush() {
+      fireStep1Dwell("fb", getVisitorId());
+    }
+    function onVisibility() {
+      if (document.visibilityState === "hidden") flush();
+    }
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+    };
+  }, []);
 
   function next() {
     if (step < TOTAL_STEPS) {
@@ -1104,6 +1133,12 @@ export default function FbQuizPage({
       // carries the step the user is leaving, not the one they land on.
       if (typeof window !== "undefined") {
         window.clarity?.("event", `fb_quiz_step_${step}_advanced`);
+      }
+      // Fire the step-1 dwell beacon as soon as the visitor advances
+      // past step 1 — clearer signal than waiting for them to leave
+      // the page, and the next() path is the common case.
+      if (step === 1) {
+        fireStep1Dwell("fb", getVisitorId());
       }
       setStep(step + 1);
     }
