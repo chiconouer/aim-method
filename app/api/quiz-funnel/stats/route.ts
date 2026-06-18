@@ -2,9 +2,11 @@
 // GET /api/quiz-funnel/stats?platform=ttk&period=7d[&country=US]
 // -------------------------------------------------------------
 // Read-side counterpart to /api/quiz-funnel. Returns one count
-// per step (1..9) for the requested platform within the
+// per step (1..10) for the requested platform within the
 // requested time window, plus an unfiltered per-country
 // breakdown of step-1 events for the same platform + period.
+// Step 10 = "reached checkout" — fired by the sales pages when
+// the visitor clicks the Digistore buy button.
 //
 // Country filter:
 //   ?country=US      → step counts filtered to country = 'US'
@@ -20,7 +22,7 @@
 // directly for this data; it hits this route.
 //
 // Performance:
-//   - 9 parallel HEAD-style count queries for the funnel bars,
+//   - 10 parallel HEAD-style count queries for the funnel bars,
 //     each hitting (platform, step) [+ country] indexes.
 //   - 1 extra query that fetches just the `country` column for
 //     step-1 rows in the period (no group-by in PostgREST — we
@@ -91,12 +93,12 @@ export async function GET(req: NextRequest) {
   // async IIFE so the array holds real Promises (Supabase's
   // PostgrestFilterBuilder is a thenable, not a Promise).
   const counts: Record<number, number> = {};
-  for (let s = 1; s <= 9; s++) counts[s] = 0;
+  for (let s = 1; s <= 10; s++) counts[s] = 0;
 
   type CountResult = { step: number; count: number; error: string | null };
 
   const countQueries: Promise<CountResult>[] = [];
-  for (let s = 1; s <= 9; s++) {
+  for (let s = 1; s <= 10; s++) {
     countQueries.push(
       (async (): Promise<CountResult> => {
         let q = supabaseAdmin

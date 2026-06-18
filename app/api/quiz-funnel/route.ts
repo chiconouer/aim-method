@@ -6,10 +6,12 @@
 // navigator.sendBeacon() inside the step-change useEffect (and
 // once more with step=9 right before routing to the VSL).
 //
-// Body: { platform: "ttk" | "fb", step: 1..9 }
+// Body: { platform: "ttk" | "fb", step: 1..10 }
 //   - platform = traffic-source slug (matches the URL prefix)
 //   - step 1..8 = viewed step N of the quiz
 //   - step 9    = reached the /[platform]/sales VSL after step 8
+//   - step 10   = clicked the buy button on /[platform]/sales
+//                 (reached checkout — Digistore link)
 //
 // Country tagging:
 //   The visitor's country is read SERVER-SIDE from Vercel's
@@ -46,7 +48,7 @@ function isPlatform(v: unknown): v is Platform {
 }
 
 function isValidStep(v: unknown): v is number {
-  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 9;
+  return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 10;
 }
 
 // Read Vercel's geo header and normalize. Anything that doesn't look
