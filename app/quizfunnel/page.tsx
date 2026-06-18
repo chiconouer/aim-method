@@ -7,14 +7,16 @@
 // Supabase directly — that route is the only reader, and it
 // uses the service-role client server-side.
 //
-// Bot filter (default ON):
-//   - "Hide bots (only real visitors)" toggle at the top.
-//   - When ON, the funnel's step-1 baseline is replaced with the
-//     step-2 count server-side. Bots that hit step 1 and never
-//     advanced are silently filtered out. Steps 2..10 keep
-//     their raw counts.
-//   - When OFF, the funnel shows every event including the
-//     bot-only step-1 hits.
+// Unique-visitor counting:
+//   - Counts are DISTINCT visitor_id per step (not events). A
+//     single visitor's repeated taps register as one person.
+//   - Server-side: the stats route fetches (visitor_id, step,
+//     country) for the platform+period and aggregates into
+//     Set<visitor_id> per step in JS. Rows with NULL visitor_id
+//     (legacy, before the visitor_id migration) are excluded.
+//   - The previous "hide bots" toggle was removed: step-1-only
+//     visitors are real data we want to keep (a real person who
+//     landed and quit is part of the funnel).
 //
 // "By Country" breakdown:
 //   - Unknown / null-country rows are excluded entirely.
@@ -109,9 +111,7 @@ function countryDisplay(code: string): string {
 interface StatsResponse {
   platform: Platform;
   period: Period;
-  hideBots: boolean;
   counts: Record<string, number>;
-  rawStep1Count?: number;
   countryBreakdown: Record<string, number>;
 }
 
@@ -123,7 +123,6 @@ export default function FunnelDashboardPage() {
 
   const [platform, setPlatform] = useState<Platform>("ttk");
   const [period, setPeriod] = useState<Period>("24h");
-  const [hideBots, setHideBots] = useState<boolean>(true);
   const [counts, setCounts] = useState<Record<number, number> | null>(null);
   const [breakdown, setBreakdown] = useState<Record<string, number> | null>(
     null,
@@ -159,7 +158,6 @@ export default function FunnelDashboardPage() {
     const params = new URLSearchParams({
       platform,
       period,
-      hideBots: hideBots ? "true" : "false",
     });
 
     fetch(`/api/quiz-funnel/stats?${params.toString()}`, { cache: "no-store" })
@@ -192,7 +190,7 @@ export default function FunnelDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [unlocked, platform, period, hideBots]);
+  }, [unlocked, platform, period]);
 
   function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -235,14 +233,12 @@ export default function FunnelDashboardPage() {
       <DashboardView
         platform={platform}
         period={period}
-        hideBots={hideBots}
         counts={counts}
         breakdown={breakdown}
         loading={loading}
         error={fetchError}
         onPlatformChange={setPlatform}
         onPeriodChange={setPeriod}
-        onHideBotsChange={setHideBots}
       />
     </PageShell>
   );
@@ -341,25 +337,21 @@ function PasswordGate({
 function DashboardView({
   platform,
   period,
-  hideBots,
   counts,
   breakdown,
   loading,
   error,
   onPlatformChange,
   onPeriodChange,
-  onHideBotsChange,
 }: {
   platform: Platform;
   period: Period;
-  hideBots: boolean;
   counts: Record<number, number> | null;
   breakdown: Record<string, number> | null;
   loading: boolean;
   error: string | null;
   onPlatformChange: (p: Platform) => void;
   onPeriodChange: (p: Period) => void;
-  onHideBotsChange: (v: boolean) => void;
 }) {
   const step1 = counts?.[1] ?? 0;
   const step9 = counts?.[9] ?? 0;
@@ -409,7 +401,6 @@ function DashboardView({
 
       <PlatformTabs value={platform} onChange={onPlatformChange} />
       <PeriodButtons value={period} onChange={onPeriodChange} />
-      <BotToggle value={hideBots} onChange={onHideBotsChange} />
 
       <SummaryCards
         started={step1}
@@ -501,7 +492,7 @@ function PeriodButtons({
 }) {
   const periods: Period[] = ["24h", "7d", "30d", "all"];
   return (
-    <div className="flex flex-wrap justify-center gap-2 mb-4">
+    <div className="flex flex-wrap justify-center gap-2 mb-6">
       {periods.map((p) => {
         const active = p === value;
         return (
@@ -520,49 +511,6 @@ function PeriodButtons({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// "Hide bots" toggle — switches the funnel between "real visitors"
-// (step 1 baseline replaced with step 2 count server-side) and
-// "everyone" (raw counts). Touch target is the entire label so
-// the switch is comfortably tappable on mobile.
-function BotToggle({
-  value,
-  onChange,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex justify-center mb-6">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={value}
-        onClick={() => onChange(!value)}
-        className="flex items-center gap-3 px-4 py-2 rounded-xl border border-purple-900/40 bg-[#0d0a1a] hover:bg-[#13102a] transition-colors cursor-pointer focus:outline-none focus-visible:border-purple-400"
-      >
-        <span className="text-xs font-bold tracking-widest uppercase text-gray-300">
-          Hide bots
-        </span>
-        <span className="hidden sm:inline text-[10px] text-gray-500 normal-case tracking-normal font-normal">
-          (only real visitors)
-        </span>
-        <span
-          aria-hidden="true"
-          className={`relative inline-block w-10 h-5 rounded-full transition-colors ${
-            value ? "bg-purple-600" : "bg-[#050505] border border-purple-900/40"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform shadow ${
-              value ? "translate-x-[1.125rem]" : "translate-x-0.5"
-            }`}
-          />
-        </span>
-      </button>
     </div>
   );
 }

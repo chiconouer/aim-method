@@ -18,6 +18,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { FbTracking } from "@/components/FbTracking";
+import { getVisitorId } from "@/lib/visitor_id";
 
 // JSX type for Vturb's custom element (web component, no public type pkg).
 // Module augmentation already merged from /ttk/sales; redeclaring locally
@@ -85,7 +86,8 @@ const CHECKOUT_URL =
 function recordFunnelStep(platform: "ttk" | "fb", step: number): void {
   try {
     if (typeof window === "undefined") return;
-    const body = JSON.stringify({ platform, step });
+    const visitor_id = getVisitorId();
+    const body = JSON.stringify({ platform, step, visitor_id });
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
       const ok = navigator.sendBeacon("/api/quiz-funnel", blob);

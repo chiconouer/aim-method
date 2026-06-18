@@ -31,6 +31,7 @@ import { useRouter } from "next/navigation";
 // of the file via `import type`, which is erased at compile time.
 import type confetti from "canvas-confetti";
 import { TikTokPixel } from "@/components/TikTokPixel";
+import { getVisitorId } from "@/lib/visitor_id";
 
 // Microsoft Clarity exposes window.clarity as a function once the
 // tag script (loaded by <TikTokPixel />) has hydrated. Optional
@@ -238,7 +239,8 @@ function playMoneySound(): void {
 function recordFunnelStep(platform: "ttk" | "fb", step: number): void {
   try {
     if (typeof window === "undefined") return;
-    const body = JSON.stringify({ platform, step });
+    const visitor_id = getVisitorId();
+    const body = JSON.stringify({ platform, step, visitor_id });
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });
       const ok = navigator.sendBeacon("/api/quiz-funnel", blob);

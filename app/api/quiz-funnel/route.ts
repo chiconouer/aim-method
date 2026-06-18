@@ -6,12 +6,17 @@
 // navigator.sendBeacon() inside the step-change useEffect (and
 // once more with step=9 right before routing to the VSL).
 //
-// Body: { platform: "ttk" | "fb", step: 1..10 }
-//   - platform = traffic-source slug (matches the URL prefix)
-//   - step 1..8 = viewed step N of the quiz
-//   - step 9    = reached the /[platform]/sales VSL after step 8
-//   - step 10   = clicked the buy button on /[platform]/sales
-//                 (reached checkout — Digistore link)
+// Body: { platform: "ttk" | "fb", step: 1..10, visitor_id?: string }
+//   - platform   = traffic-source slug (matches the URL prefix)
+//   - step 1..8  = viewed step N of the quiz
+//   - step 9     = reached the /[platform]/sales VSL after step 8
+//   - step 10    = clicked the buy button on /[platform]/sales
+//                  (reached checkout — Digistore link)
+//   - visitor_id = anonymous random id generated client-side in
+//                  localStorage. Forwarded verbatim so the
+//                  dashboard can count UNIQUE visitors per step
+//                  instead of total events. Optional + nullable
+//                  so legacy clients keep working.
 //
 // Country tagging:
 //   The visitor's country is read SERVER-SIDE from Vercel's
@@ -51,6 +56,14 @@ function isValidStep(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 10;
 }
 
+// Accept any non-empty string up to 64 chars. UUIDs are 36; the
+// fallback timestamp+random format is ~17. 64 leaves room for
+// future formats without letting a bad actor stuff arbitrary
+// data into the column.
+function isValidVisitorId(v: unknown): v is string {
+  return typeof v === "string" && v.length > 0 && v.length <= 64;
+}
+
 // Read Vercel's geo header and normalize. Anything that doesn't look
 // like a 2-letter ISO code becomes null so we don't pollute the
 // column with junk.
@@ -74,6 +87,7 @@ export async function POST(req: NextRequest) {
 
   const platform = (body as { platform?: unknown })?.platform;
   const step = (body as { step?: unknown })?.step;
+  const rawVisitorId = (body as { visitor_id?: unknown })?.visitor_id;
 
   if (!isPlatform(platform) || !isValidStep(step)) {
     // Defense in depth against accidental misuse / drive-by spam.
@@ -81,17 +95,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
+  const visitor_id = isValidVisitorId(rawVisitorId) ? rawVisitorId : null;
   const country = readCountry(req);
 
   const { error } = await supabaseAdmin
     .from("quiz_funnel_events")
-    .insert({ platform, step, country });
+    .insert({ platform, step, country, visitor_id });
 
   if (error) {
     // Log loudly — missing rows in the dashboard are debuggable
     // from Vercel logs by grepping this prefix.
     console.error(
-      `[quiz-funnel] insert failed platform=${platform} step=${step} country=${country ?? "null"} err=${error.message}`,
+      `[quiz-funnel] insert failed platform=${platform} step=${step} country=${country ?? "null"} visitor_id=${visitor_id ?? "null"} err=${error.message}`,
     );
   }
 
