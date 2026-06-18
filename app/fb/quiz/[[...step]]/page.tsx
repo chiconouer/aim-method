@@ -80,7 +80,7 @@ const STEP7_RESULTS_IMAGES: string[] = [
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/93F3E47E-AF60-4CC7-BC7A-D4740F81D5DA.jpg",
 ];
 const STEP8_IMAGE_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step8.jpg";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step8v2.jpg";
 // ───────────────────────────────────────────────────────────
 
 // Only INTRO1_IMG (step 1) is preloaded eagerly via a
