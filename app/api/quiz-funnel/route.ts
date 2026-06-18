@@ -11,6 +11,14 @@
 //   - step 1..8 = viewed step N of the quiz
 //   - step 9    = reached the /[platform]/sales VSL after step 8
 //
+// Country tagging:
+//   The visitor's country is read SERVER-SIDE from Vercel's
+//   `x-vercel-ip-country` header (ISO 3166-1 alpha-2 like "US",
+//   "BR", "SG"). The browser never sends it — geo from the
+//   client is unreliable and spoofable. Header may be absent in
+//   local dev / preview / non-Vercel environments → stored as
+//   null and the dashboard treats null as "unknown".
+//
 // Auth model: the browser must NEVER touch Supabase directly for
 // quiz_funnel_events — that table's RLS denies anon access. This
 // route is the only writer, and it uses the SERVICE ROLE client
@@ -41,6 +49,17 @@ function isValidStep(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 9;
 }
 
+// Read Vercel's geo header and normalize. Anything that doesn't look
+// like a 2-letter ISO code becomes null so we don't pollute the
+// column with junk.
+function readCountry(req: NextRequest): string | null {
+  const raw = req.headers.get("x-vercel-ip-country");
+  if (!raw) return null;
+  const trimmed = raw.trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -60,15 +79,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
+  const country = readCountry(req);
+
   const { error } = await supabaseAdmin
     .from("quiz_funnel_events")
-    .insert({ platform, step });
+    .insert({ platform, step, country });
 
   if (error) {
     // Log loudly — missing rows in the dashboard are debuggable
     // from Vercel logs by grepping this prefix.
     console.error(
-      `[quiz-funnel] insert failed platform=${platform} step=${step} err=${error.message}`,
+      `[quiz-funnel] insert failed platform=${platform} step=${step} country=${country ?? "null"} err=${error.message}`,
     );
   }
 
