@@ -8,14 +8,16 @@
 // bots' ~1-second sessions in Clarity recordings).
 //
 // Body: { platform: "ttk" | "fb", visitor_id: string,
-//         dwell_ms: integer }
+//         dwell_ms: integer, interacted?: boolean }
 //
 // Action: UPDATEs quiz_funnel_events rows for the (platform,
 // visitor_id, step=1) tuple where step1_dwell_ms is currently
 // NULL. The IS NULL guard means subsequent dwell pings (e.g. a
 // visitor reloading the page mid-session) only fill in unset
 // rows; rows from earlier visits stay frozen at their previous
-// dwell value.
+// dwell value. The `interacted` boolean rides on the same row
+// — a true value means the visitor touched/clicked/scrolled
+// at least once while step 1 was active.
 //
 // Auth: uses the SERVICE ROLE client (supabaseAdmin) — the
 // quiz_funnel_events table is RLS-locked and the anon role has
@@ -55,6 +57,14 @@ function isValidDwell(v: unknown): v is number {
   );
 }
 
+// `interacted` is optional. Boolean values are accepted as-is;
+// anything else (missing / wrong type) is normalized to null and
+// the UPDATE leaves that column untouched.
+function parseInteracted(v: unknown): boolean | null {
+  if (v === true || v === false) return v;
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -66,6 +76,9 @@ export async function POST(req: NextRequest) {
   const platform = (body as { platform?: unknown })?.platform;
   const visitor_id = (body as { visitor_id?: unknown })?.visitor_id;
   const dwell_ms = (body as { dwell_ms?: unknown })?.dwell_ms;
+  const interacted = parseInteracted(
+    (body as { interacted?: unknown })?.interacted,
+  );
 
   if (
     !isPlatform(platform) ||
@@ -75,9 +88,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
+  // Always set step1_dwell_ms. interacted is conditionally added so
+  // a legacy client that doesn't send it doesn't wipe an existing
+  // value (UPDATE leaves the column alone if it's not in the patch).
+  const patch: { step1_dwell_ms: number; interacted?: boolean } = {
+    step1_dwell_ms: dwell_ms,
+  };
+  if (interacted !== null) {
+    patch.interacted = interacted;
+  }
+
   const { error } = await supabaseAdmin
     .from("quiz_funnel_events")
-    .update({ step1_dwell_ms: dwell_ms })
+    .update(patch)
     .eq("platform", platform)
     .eq("visitor_id", visitor_id)
     .eq("step", 1)
@@ -85,7 +108,7 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error(
-      `[quiz-funnel-dwell] update failed platform=${platform} visitor_id=${visitor_id} dwell_ms=${dwell_ms} err=${error.message}`,
+      `[quiz-funnel-dwell] update failed platform=${platform} visitor_id=${visitor_id} dwell_ms=${dwell_ms} interacted=${interacted ?? "null"} err=${error.message}`,
     );
   }
 

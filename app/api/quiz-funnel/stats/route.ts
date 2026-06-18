@@ -15,14 +15,17 @@
 //   counts[N] = number of distinct visitor_id values that have
 //   at least one row at step N for this platform+period.
 //
-// Bot filter (default ON):
-//   A visitor is classified as a BOT when:
-//     max(step) == 1  AND  step1_dwell_ms IS NOT NULL  AND
-//     step1_dwell_ms < 2000
+// Bot filter (default ON), multi-signal:
+//   A visitor is classified as a BOT when ALL of:
+//     max(step) == 1
+//     AND step1_dwell_ms IS NOT NULL AND step1_dwell_ms < 2000
+//     AND interacted === false  (explicit false; null = unknown
+//                                = treated as real)
 //
-//   "Real" otherwise — including visitors who hit step 1 and
-//   left WITHOUT a dwell ping (treated as unknown → real,
-//   conservative bias).
+//   "Real" otherwise — advanced past step 1, OR dwell >= 2s,
+//   OR interacted === true (touched/clicked/scrolled), OR any
+//   of those signals are unknown. Conservative bias: anything
+//   we don't have evidence FOR is treated as real.
 //
 //   When hideBots=true (default) the route subtracts bots from
 //   counts + countryBreakdown server-side. When hideBots=false
@@ -33,9 +36,9 @@
 // browser never queries Supabase directly; it hits this route.
 //
 // Performance: ONE fetch of (visitor_id, step, country,
-// step1_dwell_ms) for the platform+period, then JS aggregates
-// per visitor and applies the bot filter in memory. Capped at
-// 200k rows.
+// step1_dwell_ms, interacted) for the platform+period, then JS
+// aggregates per visitor and applies the bot filter in memory.
+// Capped at 200k rows.
 // =============================================================
 
 import { NextRequest, NextResponse } from "next/server";
@@ -78,11 +81,13 @@ interface EventRow {
   step: number | null;
   country: string | null;
   step1_dwell_ms: number | null;
+  interacted: boolean | null;
 }
 
 interface VisitorAgg {
   steps: Set<number>;
   step1DwellMs: number | null;
+  step1Interacted: boolean | null;
   countryAtStep1: string | null;
 }
 
@@ -93,7 +98,11 @@ function isBot(agg: VisitorAgg): boolean {
   });
   if (maxStep > 1) return false;
   if (agg.step1DwellMs == null) return false;
-  return agg.step1DwellMs < BOT_DWELL_MS_THRESHOLD;
+  if (agg.step1DwellMs >= BOT_DWELL_MS_THRESHOLD) return false;
+  // Need explicit false on interacted — null is "unknown" and
+  // gets the benefit of the doubt (real).
+  if (agg.step1Interacted !== false) return false;
+  return true;
 }
 
 export async function GET(req: NextRequest) {
@@ -113,7 +122,7 @@ export async function GET(req: NextRequest) {
 
   let q = supabaseAdmin
     .from("quiz_funnel_events")
-    .select("visitor_id, step, country, step1_dwell_ms")
+    .select("visitor_id, step, country, step1_dwell_ms, interacted")
     .eq("platform", platform)
     .not("visitor_id", "is", null)
     .limit(200000);
@@ -139,7 +148,12 @@ export async function GET(req: NextRequest) {
 
     let agg = visitors.get(v);
     if (!agg) {
-      agg = { steps: new Set(), step1DwellMs: null, countryAtStep1: null };
+      agg = {
+        steps: new Set(),
+        step1DwellMs: null,
+        step1Interacted: null,
+        countryAtStep1: null,
+      };
       visitors.set(v, agg);
     }
     agg.steps.add(s);
@@ -152,6 +166,17 @@ export async function GET(req: NextRequest) {
       if (typeof dwell === "number") {
         if (agg.step1DwellMs == null || dwell > agg.step1DwellMs) {
           agg.step1DwellMs = dwell;
+        }
+      }
+      // Interacted across multiple step-1 rows for the same visitor:
+      // if we've ever seen TRUE, lock it in. Otherwise upgrade from
+      // null to whatever the row reported.
+      if (agg.step1Interacted !== true) {
+        const i = row.interacted;
+        if (i === true) {
+          agg.step1Interacted = true;
+        } else if (i === false && agg.step1Interacted == null) {
+          agg.step1Interacted = false;
         }
       }
     }

@@ -11,20 +11,26 @@
 //   - Counts are DISTINCT visitor_id per step (not events). A
 //     single visitor's repeated taps register as one person.
 //   - Server-side: the stats route fetches (visitor_id, step,
-//     country, step1_dwell_ms) for the platform+period and
-//     aggregates per visitor in JS. Rows with NULL visitor_id
-//     (legacy, before the visitor_id migration) are excluded.
+//     country, step1_dwell_ms, interacted) for the platform+
+//     period and aggregates per visitor in JS. Rows with NULL
+//     visitor_id (legacy, before the visitor_id migration) are
+//     excluded.
 //
-// Behavior-based bot filter (default ON):
-//   - Definition: a visitor is a BOT when max(step) reached is
-//     1 AND step1_dwell_ms is set AND < 2000 ms. (Matches the
-//     Singapore TikTok-review bots in Clarity recordings.)
+// Behavior-based bot filter (default ON), multi-signal:
+//   - Definition: a visitor is a BOT when ALL of these are true:
+//       max(step) reached == 1
+//       AND step1_dwell_ms is set AND < 2000 ms
+//       AND interacted === false (touch/click/scroll never fired
+//         on step 1; null is "unknown" and treated as real).
+//     Matches the Singapore TikTok-review bots in Clarity
+//     recordings — short visits, no taps, never advance.
 //   - When ON, bots are subtracted from all funnel counts +
 //     summary cards + country breakdown SERVER-SIDE in the
 //     stats route.
 //   - When OFF, everyone is counted (raw distinct visitors).
 //   - botCount + realCount come back on the response so the
-//     toggle subtitle can show "(N excluded · <2s on step 1)".
+//     toggle subtitle can show
+//     "(N excluded · no advance, <2s, no touch)".
 //
 // "By Country" breakdown:
 //   - Unknown / null-country rows are excluded entirely.
@@ -547,9 +553,10 @@ function PeriodButtons({
 
 // Behavior-based bot toggle — switches the funnel between
 // "real visitors only" (excludes visitors whose max step is 1
-// AND step-1 dwell is < 2 s) and "everyone". When ON the
-// toggle subtitle shows the number of visitors currently being
-// filtered, so it's clear what's being excluded.
+// AND step-1 dwell is < 2 s AND interacted is explicit false)
+// and "everyone". When ON the toggle subtitle shows the number
+// of visitors currently being filtered, so it's clear what's
+// being excluded.
 function BotToggle({
   value,
   botCount,
@@ -573,8 +580,8 @@ function BotToggle({
         </span>
         <span className="hidden sm:inline text-[10px] text-gray-500 normal-case tracking-normal font-normal">
           {value && botCount > 0
-            ? `(${botCount.toLocaleString()} excluded · <2s on step 1)`
-            : "(<2s on step 1)"}
+            ? `(${botCount.toLocaleString()} excluded · no advance, <2s, no touch)`
+            : "(no advance, <2s, no touch)"}
         </span>
         <span
           aria-hidden="true"

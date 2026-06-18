@@ -32,7 +32,11 @@ import { useRouter } from "next/navigation";
 import type confetti from "canvas-confetti";
 import { FbTracking } from "@/components/FbTracking";
 import { getVisitorId } from "@/lib/visitor_id";
-import { markStep1Mounted, fireStep1Dwell } from "@/lib/step1_dwell";
+import {
+  markStep1Mounted,
+  markStep1Interaction,
+  fireStep1Dwell,
+} from "@/lib/step1_dwell";
 
 // Microsoft Clarity exposes window.clarity as a function once the
 // tag script (loaded by <FbTracking />) has hydrated. Optional
@@ -1126,6 +1130,30 @@ export default function FbQuizPage({
       window.removeEventListener("beforeunload", flush);
     };
   }, []);
+
+  // Interaction listeners — registered only while step 1 is active.
+  // Any touchstart / pointerdown / click / scroll flips the
+  // step-1 interaction flag in the dwell helper. markStep1Interaction
+  // is idempotent so multiple events firing in sequence (e.g.
+  // touchstart → pointerdown → click on the same tap) are safe.
+  // Cleaned up when step changes — no listeners survive past step 1.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (step !== 1) return;
+    function onInteract() {
+      markStep1Interaction();
+    }
+    window.addEventListener("touchstart", onInteract, { passive: true });
+    window.addEventListener("pointerdown", onInteract);
+    window.addEventListener("click", onInteract);
+    window.addEventListener("scroll", onInteract, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", onInteract);
+      window.removeEventListener("pointerdown", onInteract);
+      window.removeEventListener("click", onInteract);
+      window.removeEventListener("scroll", onInteract);
+    };
+  }, [step]);
 
   function next() {
     if (step < TOTAL_STEPS) {
