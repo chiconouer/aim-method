@@ -1,11 +1,13 @@
 // =============================================================
-// Step-1 dwell measurement for the funnel's behavior-based bot
-// filter. The quiz pages mark step 1 mounted on render, then
-// fire the elapsed ms to /api/quiz-funnel/dwell exactly once
-// when the visitor leaves step 1 — either by advancing
-// (next() in the page calls fireStep1Dwell) or by leaving the
-// page (visibilitychange / pagehide / beforeunload listeners
-// in the page also call fireStep1Dwell).
+// Step-1 dwell + interaction measurement for the funnel's
+// multi-signal bot filter. The quiz pages mark step 1 mounted
+// on render, register interaction listeners while step 1 is
+// active, then fire BOTH the elapsed ms and the interacted
+// boolean to /api/quiz-funnel/dwell exactly once when the
+// visitor leaves step 1 — either by advancing (next() in the
+// page calls fireStep1Dwell) or by leaving the page
+// (visibilitychange / pagehide / beforeunload listeners in the
+// page also call fireStep1Dwell).
 //
 // State is intentionally module-level: only one quiz page mounts
 // per tab at a time, and the singleton flag (step1DwellSent)
@@ -20,11 +22,20 @@
 
 let step1MountedAt = 0;
 let step1DwellSent = false;
+let step1Interacted = false;
 
 export function markStep1Mounted(): void {
   if (typeof window === "undefined") return;
   step1MountedAt = Date.now();
   step1DwellSent = false;
+  step1Interacted = false;
+}
+
+// Called from any user-interaction listener on step 1
+// (touchstart / pointerdown / click / scroll). Idempotent —
+// flips the flag once and stays true until the next mount.
+export function markStep1Interaction(): void {
+  step1Interacted = true;
 }
 
 export function fireStep1Dwell(
@@ -38,7 +49,12 @@ export function fireStep1Dwell(
     step1DwellSent = true;
 
     const dwell_ms = Math.max(0, Date.now() - step1MountedAt);
-    const body = JSON.stringify({ platform, visitor_id, dwell_ms });
+    const body = JSON.stringify({
+      platform,
+      visitor_id,
+      dwell_ms,
+      interacted: step1Interacted,
+    });
 
     if (typeof navigator !== "undefined" && navigator.sendBeacon) {
       const blob = new Blob([body], { type: "application/json" });

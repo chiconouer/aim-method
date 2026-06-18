@@ -1,0 +1,38 @@
+-- =============================================================
+-- Add `interacted` column to quiz_funnel_events for the
+-- multi-signal bot filter. The dashboard now classifies a
+-- visitor as a BOT only when ALL of these hold:
+--   1. max step reached == 1 (never advanced)
+--   2. step1_dwell_ms IS NOT NULL AND step1_dwell_ms < 2000
+--   3. interacted IS NOT NULL AND interacted = false
+--
+-- A real human (with a finger) almost always touches or scrolls
+-- something on step 1 — even when they leave fast. Bots load
+-- the page and quit without ever interacting. Adding the
+-- interaction signal on top of dwell tightens the filter:
+-- "didn't advance + spent <2s + never touched anything" is a
+-- much stronger bot signature than dwell alone.
+--
+-- Populated by the quiz pages: any touchstart / pointerdown /
+-- click / scroll on step 1 flips a module-level boolean to
+-- true. The boolean is included with the dwell beacon. The
+-- /api/quiz-funnel/dwell route stores it on the step-1 row in
+-- the same UPDATE that sets step1_dwell_ms.
+--
+-- Nullable on purpose:
+--   - Visitors still actively on step 1 (no dwell + no
+--     interaction signal yet) stay NULL → treated as REAL.
+--   - Visitors who left in a way we couldn't capture stay
+--     NULL → treated as REAL. Conservative bias.
+--   - Existing rows (created before this migration) stay NULL
+--     → treated as REAL.
+--
+-- No new index needed — the existing
+-- idx_quiz_funnel_events_platform_visitor already supports the
+-- UPDATE's WHERE clause.
+--
+-- Idempotent — safe to re-run via ADD COLUMN IF NOT EXISTS.
+-- =============================================================
+
+ALTER TABLE quiz_funnel_events
+  ADD COLUMN IF NOT EXISTS interacted BOOLEAN;
