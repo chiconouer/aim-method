@@ -86,7 +86,12 @@ const STEP7_RESULTS_IMAGES: string[] = [
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/93F3E47E-AF60-4CC7-BC7A-D4740F81D5DA.jpg",
 ];
 const STEP8_IMAGE_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step8.jpg";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step8v2.jpg";
+// Tiny SVG data URI — paints a dark gradient placeholder while the
+// step-6 video is unloaded. ~150 bytes, zero network cost. Keeps the
+// video area visually present before the user taps to play.
+const STEP6_VIDEO_POSTER =
+  "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%209%2016%27%3E%3Cdefs%3E%3ClinearGradient%20id%3D%27g%27%20x1%3D%270%27%20y1%3D%270%27%20x2%3D%270%27%20y2%3D%271%27%3E%3Cstop%20offset%3D%270%27%20stop-color%3D%27%23130c2a%27%2F%3E%3Cstop%20offset%3D%271%27%20stop-color%3D%27%23080810%27%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Crect%20width%3D%279%27%20height%3D%2716%27%20fill%3D%27url%28%23g%29%27%2F%3E%3C%2Fsvg%3E";
 // ───────────────────────────────────────────────────────────
 
 // Only INTRO1_IMG (step 1) is preloaded eagerly via a
@@ -413,18 +418,25 @@ function ImagePlaceholder({
   );
 }
 
+// Tap-to-play video. preload="none" + no autoPlay guarantees the
+// browser does NOT fetch the 16 MB source until the visitor explicitly
+// taps. The poster is an inline SVG (zero network) so the video area
+// is visually present from mount. On tap, .play() inside the user
+// gesture unblocks BOTH the network load and unmuted audio in one
+// shot (iOS requires a gesture for unmuted playback). Mounts only
+// when step === 6, so even the <video> element doesn't exist before
+// that.
 function VideoPlaceholder({ url }: { url: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [showSoundOverlay, setShowSoundOverlay] = useState(true);
+  const [showStartOverlay, setShowStartOverlay] = useState(true);
 
-  function handleUnmute() {
+  function handleStart() {
     const v = videoRef.current;
     if (v) {
       v.muted = false;
-      // Some browsers pause when unmute happens via JS — re-issue play().
       v.play().catch(() => {});
     }
-    setShowSoundOverlay(false);
+    setShowStartOverlay(false);
   }
 
   if (url) {
@@ -437,18 +449,18 @@ function VideoPlaceholder({ url }: { url: string }) {
         <video
           ref={videoRef}
           src={url}
-          autoPlay
-          muted
           loop
           playsInline
           controls
+          preload="none"
+          poster={STEP6_VIDEO_POSTER}
           className="block max-h-[50vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30 bg-black"
         />
-        {showSoundOverlay && (
+        {showStartOverlay && (
           <button
             type="button"
-            onClick={handleUnmute}
-            aria-label="Tap to enable sound"
+            onClick={handleStart}
+            aria-label="Tap to play video"
             className="absolute inset-0 flex items-center justify-center rounded-2xl cursor-pointer focus:outline-none focus-visible:bg-black/10 transition-colors"
           >
             <span
@@ -457,11 +469,10 @@ function VideoPlaceholder({ url }: { url: string }) {
                 background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
                 boxShadow:
                   "0 0 24px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-                animation: "soundPulse 1.6s ease-in-out infinite",
               }}
             >
-              <span className="text-base" aria-hidden="true">🔊</span>
-              Tap for sound
+              <span className="text-base" aria-hidden="true">▶</span>
+              Tap to play
             </span>
           </button>
         )}
@@ -483,16 +494,31 @@ function VideoPlaceholder({ url }: { url: string }) {
 // Horizontal swipeable carousel — CSS scroll-snap handles touch/drag
 // natively on mobile, no JS gesture lib needed. onScroll measures the
 // current slide index from scrollLeft so dot indicators stay in sync.
+// Scroll events fire 60+ times/sec on mobile, so we coalesce them
+// through requestAnimationFrame — at most one index recalc per frame.
+// Cheap React-side comparison still gates re-renders, but the rAF
+// gate prevents the React reconciler from being woken up needlessly.
 function TestimonialsCarousel({ images }: { images: string[] }) {
   const [activeSlide, setActiveSlide] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
   function handleScroll() {
-    const el = scrollRef.current;
-    if (!el || el.clientWidth === 0) return;
-    const newIndex = Math.round(el.scrollLeft / el.clientWidth);
-    setActiveSlide((prev) => (prev === newIndex ? prev : newIndex));
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const el = scrollRef.current;
+      if (!el || el.clientWidth === 0) return;
+      const newIndex = Math.round(el.scrollLeft / el.clientWidth);
+      setActiveSlide((prev) => (prev === newIndex ? prev : newIndex));
+    });
   }
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   function goToSlide(i: number) {
     const el = scrollRef.current;
@@ -556,6 +582,11 @@ function TestimonialsCarousel({ images }: { images: string[] }) {
   );
 }
 
+// Static glow — the previous infinite box-shadow animation (3 s loop
+// on every Continue button) forced a full repaint each frame on
+// mobile/in-app browsers, which compounded into visible jank on
+// WKWebView. The non-animated glow looks ~identical and costs zero
+// per frame after first paint.
 function ContinueButton({
   label,
   onClick,
@@ -571,8 +602,7 @@ function ContinueButton({
       style={{
         background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
         boxShadow:
-          "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-        animation: "btnGlow 3s ease-in-out infinite",
+          "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
       }}
     >
       {label}
@@ -1155,6 +1185,26 @@ export default function TtkQuizPage({
     };
   }, [step]);
 
+  // Pre-warm the AudioContext on idle so the synchronous Web Audio
+  // setup (~10–50 ms on low-end / in-app browsers) doesn't block the
+  // first answer-tap's popup render. The context is created in
+  // `suspended` state outside any user gesture; the answer tap then
+  // calls ensureAudioCtx() which already-exists + `.resume()` inside
+  // the gesture (which is what iOS actually needs to unlock audio).
+  // Wrapped in requestIdleCallback (with a setTimeout fallback) so it
+  // doesn't fight with first paint for thread time.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void) => number;
+    };
+    const schedule =
+      w.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 0));
+    schedule(() => {
+      ensureAudioCtx();
+    });
+  }, []);
+
   function next() {
     if (step < TOTAL_STEPS) {
       // "Advanced from step N" — fired BEFORE setStep so the event
@@ -1309,10 +1359,6 @@ export default function TtkQuizPage({
         })()}
 
       <style>{`
-        @keyframes btnGlow {
-          0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
-          50%{box-shadow:0 8px 48px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
-        }
         @keyframes stepFadeIn {
           from { opacity: 0; transform: translateY(8px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -1344,10 +1390,6 @@ export default function TtkQuizPage({
         .intro-stamp { animation: stampSlam 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         .carousel-track { -ms-overflow-style: none; scrollbar-width: none; }
         .carousel-track::-webkit-scrollbar { display: none; }
-        @keyframes soundPulse {
-          0%,100%{transform:scale(1);box-shadow:0 0 24px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
-          50%{transform:scale(1.04);box-shadow:0 0 36px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
-        }
       `}</style>
     </div>
   );
