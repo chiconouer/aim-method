@@ -76,7 +76,7 @@ const STEP5_PROFILE_IMAGE_URL =
 const STEP5_EARNINGS_IMAGE_URL =
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step5earnings.jpg";
 const STEP6_VIDEO_URL =
-  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/D6562B56-AA02-4CEE-B738-A0D8C2362EA1.mov";
+  "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/D6562B56-AA02-4CEE-B738-A0D8C2362EA1.mp4";
 // Step 7 — 5 testimonial images shown in a swipeable carousel
 const STEP7_RESULTS_IMAGES: string[] = [
   "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step7.jpg",
@@ -448,14 +448,15 @@ function VideoPlaceholder({ url }: { url: string }) {
       <div className="relative w-full max-w-sm mx-auto">
         <video
           ref={videoRef}
-          src={url}
           loop
           playsInline
           controls
           preload="none"
           poster={STEP6_VIDEO_POSTER}
           className="block max-h-[50vh] max-w-full w-auto h-auto mx-auto rounded-2xl border border-purple-900/30 bg-black"
-        />
+        >
+          <source src={url} type="video/mp4" />
+        </video>
         {showStartOverlay && (
           <button
             type="button"
