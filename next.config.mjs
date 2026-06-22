@@ -79,6 +79,28 @@ const nextConfig = {
         destination: '/upsell-2/thank-you',
         permanent: true,
       },
+      // 2026-06-22 — retired the middle $47/$27 upsell+downsell from the
+      // organic Hotmart chain. The organic post-purchase flow is now:
+      //   Hotmart $29 → /upsell-2 ($197) → /downsell-2 ($97) → dashboard.
+      // /upsell-1 and /downsell-1 pages still exist on disk but had empty
+      // CHECKOUT_URL constants (dead buttons); redirecting them into the
+      // working chain so any old Hotmart thank-you setting, bookmarked
+      // link, or in-flight email lands somewhere that converts instead
+      // of a dead page. 307 (not permanent) so the strategic call is
+      // reversible if we ever wire the $47/$27 offers back.
+      // NOTE: these match EXACT `/upsell-1` and `/downsell-1` only — the
+      // subroute redirects above (preferences, my-model, thank-you) keep
+      // their own destinations because Next matches the full path.
+      {
+        source: '/upsell-1',
+        destination: '/upsell-2',
+        permanent: false,
+      },
+      {
+        source: '/downsell-1',
+        destination: '/upsell-2',
+        permanent: false,
+      },
     ];
   },
 };
