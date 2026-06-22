@@ -17,16 +17,25 @@ import {
 
 export default function CertificatePage() {
   // useSearchParams() requires a Suspense boundary at static-export time.
+  // The Google Fonts hints + Bebas Neue stylesheet are page-scoped (moved
+  // off the root layout in 2026-06) — they're only needed for the
+  // <Certificate> SVG below, so other routes don't pay the 2 extra round
+  // trips. React 19 hoists these <link> tags to <head> automatically.
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-          <div className="text-gray-500 text-sm">Loading…</div>
-        </div>
-      }
-    >
-      <CertificatePageInner />
-    </Suspense>
+    <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+            <div className="text-gray-500 text-sm">Loading…</div>
+          </div>
+        }
+      >
+        <CertificatePageInner />
+      </Suspense>
+    </>
   );
 }
 
