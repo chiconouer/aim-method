@@ -146,8 +146,14 @@ export default function SalesPage() {
       />
       <link rel="dns-prefetch" href="https://cdn.converteai.net" />
       <link rel="dns-prefetch" href="https://scripts.converteai.net" />
-      <link rel="dns-prefetch" href="https://images.converteai.net" />
-      <link rel="dns-prefetch" href="https://license.vturb.com" />
+      {/* preconnect (not just dns-prefetch) — does DNS + TLS handshake
+          ahead of the actual request, saving ~50–150 ms on the first
+          response from each host. Used here because both are hit early
+          in the player's bootstrap (thumbnails + license check). The
+          two hosts above already have implicit preconnects via their
+          <link rel="preload"> tags so they don't need this. */}
+      <link rel="preconnect" href="https://images.converteai.net" crossOrigin="anonymous" />
+      <link rel="preconnect" href="https://license.vturb.com" crossOrigin="anonymous" />
 
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
