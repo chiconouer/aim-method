@@ -86,10 +86,15 @@ export default function DownsellPage() {
           </div>
         )}
 
-        {/* NO THANKS — exits the funnel to the course */}
+        {/* NO THANKS — exits the funnel to the thank-you confirmation page
+            (tells the buyer their access is on the way via email). Used to
+            send straight to course.aimodelmethods.com/dashboard, but the
+            login link is delivered by the Hotmart webhook email — landing
+            on /upsell-2/thank-you first is the honest UX, the buyer then
+            follows the email link to actually sign into the course. */}
         <div className="mt-12">
           <a
-            href="https://course.aimodelmethods.com/dashboard"
+            href="https://aimodelmethods.com/upsell-2/thank-you"
             target="_self"
             className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
           >
