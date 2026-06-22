@@ -19,13 +19,18 @@ declare module "react" {
 const REVEAL_TIME = 510;
 const STORAGE_KEY = "aim_sales_visited";
 
+// Heavy local PNGs (5+ MB total) swapped for compressed JPEGs in the
+// QUIZ MEDIA Supabase bucket (the same -2 variants the quiz step-7
+// carousel already uses, so the browser cache may even hit). The
+// bobcataiden tile stays on the local /proof-bobcataiden.jpg — it's
+// already 172 KB and is the only original asset under budget.
 const STUDENTS = [
-  { name: "johnultra", image: "/proof-johnultra.png", quote: "Without you mate nothing would be possible. Thank you @Chico Nouer for always checking on me." },
-  { name: "kylefiles", image: "/proof-kylefiles.png", quote: "This is my highest total in a single day yet! Usually Sundays are a bit slower." },
-  { name: "pedrosmbk", image: "/proof-pedrosmbk.png", quote: "God bless Johnny, hopefully he will comeback for more later." },
+  { name: "johnultra", image: "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/step7-2.jpg", quote: "Without you mate nothing would be possible. Thank you @Chico Nouer for always checking on me." },
+  { name: "kylefiles", image: "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/93F3E47E-AF60-4CC7-BC7A-D4740F81D5DA-2.jpg", quote: "This is my highest total in a single day yet! Usually Sundays are a bit slower." },
+  { name: "pedrosmbk", image: "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_0997-2.jpg", quote: "God bless Johnny, hopefully he will comeback for more later." },
   { name: "bobcataiden", image: "/proof-bobcataiden.jpg", quote: "Blesssed. Thank you sm Professor Nouer." },
-  { name: "aaron89", image: "/proof-aaron89.png", quote: "Time to take action and hit 15-20k a month. I'm done half assing this business." },
-  { name: "dexmusic", image: "/proof-dexmusic.png", quote: "Very happy to be apart of this community. Thank you @Chico Nouer for always answering my questions!" },
+  { name: "aaron89", image: "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_0999-2.jpg", quote: "Time to take action and hit 15-20k a month. I'm done half assing this business." },
+  { name: "dexmusic", image: "https://vrjcgvcmycisfacgyasr.supabase.co/storage/v1/object/public/QUIZ%20MEDIA/IMG_1001-2.jpg", quote: "Very happy to be apart of this community. Thank you @Chico Nouer for always answering my questions!" },
 ];
 
 const MODELS = [
@@ -199,8 +204,7 @@ export default function SalesPage() {
             className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden smartplayer-click-event"
             style={{
               background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-              boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-              animation: "btnGlow 3s ease-in-out infinite",
+              boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}
           >
             Get Instant Access — $29 →
@@ -234,6 +238,8 @@ export default function SalesPage() {
                 <img
                   src={s.image}
                   alt={s.name}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full object-cover object-top"
                   style={{ height: "180px" }}
                 />
@@ -254,7 +260,10 @@ export default function SalesPage() {
         </div>
 
         <div className="px-5 mb-5 relative">
-          {/* Neon rotating border */}
+          {/* Neon static border — was infinite conic-gradient animation;
+              removed because conic-gradient repaints can't go to the GPU
+              on WebKit and the per-frame cost on mobile dwarfs the visual
+              gain. Static gradient keeps the same "neon ring" feel. */}
           <div
             className="absolute inset-0 rounded-[20px]"
             style={{
@@ -263,7 +272,6 @@ export default function SalesPage() {
               WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
               WebkitMaskComposite: "xor",
               maskComposite: "exclude",
-              animation: "rotateBorder 3s linear infinite",
             }}
           />
           <div
@@ -310,7 +318,7 @@ export default function SalesPage() {
               className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden smartplayer-click-event"
               style={{
                 background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-                animation: "wygBtnPulse 2s ease-in-out infinite",
+                boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
               }}
             >
               GET INSTANT ACCESS FOR $29 →
@@ -329,7 +337,7 @@ export default function SalesPage() {
         <div className="grid grid-cols-2 gap-3 px-5 mb-5">
           {MODELS.map((model) => (
             <div key={model.name} className="relative rounded-2xl overflow-hidden aspect-[3/4] border border-white/5">
-              <img src={model.image} alt={model.name} className="w-full h-full object-cover" />
+              <img src={model.image} alt={model.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
               <div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(0,0,0,0.92) 40%,transparent)" }} />
               <div className="absolute bottom-2 left-3 right-3">
                 <p className="text-sm font-black text-white">{model.name}</p>
@@ -407,24 +415,9 @@ export default function SalesPage() {
       <style>{`
         @keyframes bannerShift { 0%{background-position:0%} 100%{background-position:200%} }
         @keyframes shimmer { 0%{background-position:0%} 100%{background-position:200%} }
-        @keyframes btnGlow {
-          0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
-          50%{box-shadow:0 8px 48px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
-        }
-        @keyframes wygBtnPulse {
-          0%,100%{box-shadow:0 0 20px rgba(124,58,237,0.4);transform:scale(1)}
-          50%{box-shadow:0 0 40px rgba(124,58,237,0.7);transform:scale(1.01)}
-        }
         @keyframes scrollBounce {
           0%,100%{opacity:0.2;transform:translateY(0)}
           50%{opacity:1;transform:translateY(4px)}
-        }
-        @keyframes rotateBorder {
-          0%{background:conic-gradient(from 0deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          25%{background:conic-gradient(from 90deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          50%{background:conic-gradient(from 180deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          75%{background:conic-gradient(from 270deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
-          100%{background:conic-gradient(from 360deg,#7c3aed,#a78bfa,#e9d5ff,#7c3aed)}
         }
         @keyframes tickerScroll {
           0% { transform: translateX(0); }
