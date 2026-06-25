@@ -155,6 +155,20 @@ export default function SalesPage() {
       <link rel="preconnect" href="https://images.converteai.net" crossOrigin="anonymous" />
       <link rel="preconnect" href="https://license.vturb.com" crossOrigin="anonymous" />
 
+      {/* BANNER — organic /sales only (paid /ttk/sales + /fb/sales stay
+          headerless). Originally animated background-position via the
+          `bannerShift` keyframe; restored 2026-06-25 without the loop
+          because animating background-position forces a full repaint
+          per frame on mobile WKWebView. The static 3-stop gradient
+          gives the same purple-shift look at frame 0. */}
+      <div
+        className="relative overflow-hidden py-2 px-4 text-center text-xs font-bold text-white tracking-wide"
+        style={{ background: "linear-gradient(90deg,#2d0a6b,#7c3aed,#2d0a6b)" }}
+      >
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center,rgba(167,139,250,0.3),transparent 70%)" }} />
+        <p className="relative z-10">✦ Quit your 9-to-5 with my method — watch the free video below ✦</p>
+      </div>
+
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
         <span className="text-lg font-black tracking-tight">
@@ -163,11 +177,31 @@ export default function SalesPage() {
         </span>
       </nav>
 
-      {/* VIDEO — sits right below the NAV (HERO headline block removed
-          intentionally to match /ttk/sales and /fb/sales; mt-3 gives a
-          small breathing gap below the NAV border without leaving empty
-          space). */}
-      <div className="mx-4 mt-3 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
+      {/* HERO — organic /sales only (paid funnels stay headerless to keep
+          the visitor inside the quiz-warmed pre-VSL frame). Restored
+          2026-06-25 from PR ab883e3. The "$10,000+/Month" gradient used
+          to animate background-position via `shimmer` infinite; kept the
+          gradient, dropped the animation to avoid per-frame repaint on
+          mobile WKWebView. Static frame-0 looks identical. */}
+      <div className="text-center px-5 pt-5 pb-3">
+        <span className="inline-block mb-2 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase bg-purple-900/10 border border-purple-700/20 text-purple-400">
+          Free Video Reveals
+        </span>
+        <h1 className="text-2xl font-black text-white leading-tight tracking-tight mb-2">
+          How I Create AI Models<br />
+          Generating{" "}
+          <span
+            className="text-transparent bg-clip-text"
+            style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#e9d5ff,#a78bfa)" }}
+          >
+            $10,000+/Month
+          </span>
+        </h1>
+        <p className="text-[11px] text-gray-500 leading-relaxed">No face. No followers. No experience needed.</p>
+      </div>
+
+      {/* VIDEO — HERO above provides spacing, so no mt-3 needed here. */}
+      <div className="mx-4 mb-0 rounded-2xl overflow-hidden border border-purple-900/30" style={{ boxShadow: "0 0 40px rgba(124,58,237,0.12)" }}>
         <vturb-smartplayer
           id="vid-6a31cd16d43674e069ac2884"
           style={{
@@ -419,8 +453,6 @@ export default function SalesPage() {
       </div>
 
       <style>{`
-        @keyframes bannerShift { 0%{background-position:0%} 100%{background-position:200%} }
-        @keyframes shimmer { 0%{background-position:0%} 100%{background-position:200%} }
         @keyframes scrollBounce {
           0%,100%{opacity:0.2;transform:translateY(0)}
           50%{opacity:1;transform:translateY(4px)}
