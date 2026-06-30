@@ -64,16 +64,16 @@ const FAQS = [
 ];
 
 // FB2 / Sales page — second Facebook paid-traffic funnel (new
-// traffic manager). PLACEHOLDER checkout: the new manager has not
-// provided their checkout URL yet, so CHECKOUT_URL stays empty
-// until they hand it over. The `hasCheckout` guard already in this
-// file turns every CTA into a dead `href="#"` with preventDefault,
-// so the page renders correctly and the buy button is visibly
-// present but clicks do nothing — no traffic leaks into Gabriel's
-// Digistore (aff=SpackReach2) by accident.
-// To wire it later: replace the empty string with the new
-// manager's Digistore / Hotmart / Stripe URL. One-line change.
-const CHECKOUT_URL = "";
+// traffic manager). Front product is Hotmart O106558433D ($29),
+// with sck=fb2 as the source tag so paid-fb2 sales are isolated
+// in Hotmart reports (vs sck=organico on the organic /sales and
+// vs Gabriel's Digistore aff=SpackReach2 on /fb/sales). The
+// `hasCheckout` guard wired below is now satisfied (non-empty
+// string), so all four CTAs route to Hotmart instead of dead-
+// click placeholders. checkoutMode=10 matches the embedded
+// checkout pattern used by the organic + upsell-2 Hotmart links.
+const CHECKOUT_URL =
+  "https://pay.hotmart.com/O106558433D?checkoutMode=10&sck=fb2";
 
 // =============================================================
 // Funnel analytics beacon — POST to /api/quiz-funnel for the
