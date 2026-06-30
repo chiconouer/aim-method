@@ -44,7 +44,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const VALID_PLATFORMS = ["ttk", "fb"] as const;
+const VALID_PLATFORMS = ["ttk", "fb", "fb2"] as const;
 const VALID_PERIODS = ["24h", "7d", "30d", "all"] as const;
 const UNKNOWN_COUNTRY = "__unknown__";
 const BOT_DWELL_MS_THRESHOLD = 2000;

@@ -71,12 +71,13 @@ const STORAGE_KEY = "aim_funnel_unlocked";
 // filter that drops it.
 const UNKNOWN_COUNTRY = "__unknown__";
 
-type Platform = "ttk" | "fb";
+type Platform = "ttk" | "fb" | "fb2";
 type Period = "24h" | "7d" | "30d" | "all";
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   ttk: "TikTok",
   fb: "Facebook",
+  fb2: "Facebook 2",
 };
 const PERIOD_LABELS: Record<Period, string> = {
   "24h": "24 hours",
@@ -485,7 +486,7 @@ function PlatformTabs({
   value: Platform;
   onChange: (p: Platform) => void;
 }) {
-  const tabs: Platform[] = ["ttk", "fb"];
+  const tabs: Platform[] = ["ttk", "fb", "fb2"];
   return (
     <div className="flex justify-center mb-3">
       <div className="inline-flex rounded-xl border border-purple-900/40 bg-[#0d0a1a] p-1">

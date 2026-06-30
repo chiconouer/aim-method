@@ -39,7 +39,7 @@ export function markStep1Interaction(): void {
 }
 
 export function fireStep1Dwell(
-  platform: "ttk" | "fb",
+  platform: "ttk" | "fb" | "fb2",
   visitor_id: string,
 ): void {
   try {
