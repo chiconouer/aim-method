@@ -42,7 +42,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 
-const VALID_PLATFORMS = ["ttk", "fb"] as const;
+const VALID_PLATFORMS = ["ttk", "fb", "fb2"] as const;
 type Platform = (typeof VALID_PLATFORMS)[number];
 
 function isPlatform(v: unknown): v is Platform {
