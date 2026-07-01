@@ -6,64 +6,244 @@ import { insertUserWithSource } from "@/lib/insertUserWithSource";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
-export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null);
+// =============================================================
+// BULLETPROOF PAYLOAD PARSING — Postback 2.0 (JSON) or legacy
+// 1.0 (application/x-www-form-urlencoded). Reads raw body once,
+// tries JSON first (fast path), falls back to URL-decoded form.
+// If both fail returns null so the caller can 400 cleanly.
+// =============================================================
+async function parseHotmartBody(
+  req: NextRequest,
+): Promise<Record<string, unknown> | null> {
+  const contentType = (req.headers.get("content-type") || "").toLowerCase();
+  const raw = await req.text().catch(() => "");
+  if (!raw) return null;
 
-  if (!body) {
-    return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
+  const trimmed = raw.trim();
+  const looksLikeJson =
+    contentType.includes("application/json") ||
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[");
+  if (looksLikeJson) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      // fall through to form-decode
+    }
   }
 
-  // Pull product + transaction context up front — used both for the
-  // upsell branch below and as the receipt log line for every event.
-  const productId = String(body?.data?.product?.id ?? "");
-  const eventType: string = body?.event ?? "";
-  const txId =
-    body?.data?.purchase?.transaction ??
-    body?.data?.purchase?.transaction_id ??
-    body?.data?.purchase?.id ??
-    body?.data?.transaction ??
-    null;
-  console.log(
-    `[hotmart-webhook] received event=${eventType} product_id=${productId} transaction=${txId}`,
-  );
-
-  // ============================================================
-  // BRANCH: $197 / $97 upsell (AI Model Customization Service)
-  // ------------------------------------------------------------
-  // Hotmart product ID 7822152. Two offers route here:
-  //   - l3jwqomo  ($197 main upsell)
-  //   - pqis6sbk  ($97  downsell)
-  // Self-contained: returns early so the existing $29 course flow
-  // below is never reached for this product.
-  // ============================================================
-  if (productId === "7822152") {
+  // Form-encoded fallback — Postback 1.0 ships flat key=value pairs
+  // (e.g. `prod_id=8039531&buyer_email=…&event=PURCHASE_APPROVED`).
+  const looksLikeForm =
+    contentType.includes("application/x-www-form-urlencoded") ||
+    (raw.includes("=") && !trimmed.startsWith("{"));
+  if (looksLikeForm) {
     try {
-      const customerEmail: string | undefined = body?.data?.buyer?.email;
-      const customerName: string | null = body?.data?.buyer?.name ?? null;
-      const offerCode: string | null =
-        body?.data?.purchase?.offer?.code ??
-        body?.data?.purchase?.offer_code ??
-        null;
+      const params = new URLSearchParams(raw);
+      const flat: Record<string, string> = {};
+      params.forEach((v, k) => {
+        flat[k] = v;
+      });
+      return flat;
+    } catch {
+      // fall through
+    }
+  }
 
-      const APPROVED = ["PURCHASE_APPROVED", "PURCHASE_COMPLETE"];
-      const REFUNDED = [
-        "PURCHASE_REFUNDED",
-        "PURCHASE_CANCELED",
-        "PURCHASE_CHARGEBACK",
-        "PURCHASE_PROTEST",
-      ];
+  // Last-resort: raw is neither valid JSON nor form-encoded.
+  return null;
+}
 
-      if (APPROVED.includes(eventType)) {
-        if (!txId || !customerEmail) {
+// =============================================================
+// DEFENSIVE FIELD EXTRACTOR — walks a list of dot-paths and
+// returns the FIRST non-empty value. For each path, first tries
+// nested lookup ("data.product.id" → body.data.product.id), then
+// falls back to a flat lookup using the whole path as a single
+// key ("data.product.id" as one flat form-encoded key). This
+// makes the same list of paths work for both JSON (nested) and
+// form-encoded (flat with any naming convention).
+// =============================================================
+function pickField(body: Record<string, unknown>, paths: string[]): string {
+  for (const path of paths) {
+    // Attempt 1: walk nested keys
+    let cursor: unknown = body;
+    let ok = true;
+    for (const key of path.split(".")) {
+      if (
+        cursor !== null &&
+        typeof cursor === "object" &&
+        key in (cursor as Record<string, unknown>)
+      ) {
+        cursor = (cursor as Record<string, unknown>)[key];
+      } else {
+        ok = false;
+        break;
+      }
+    }
+    if (
+      ok &&
+      cursor !== undefined &&
+      cursor !== null &&
+      cursor !== ""
+    ) {
+      return String(cursor);
+    }
+
+    // Attempt 2: flat key on the root (form-encoded may have
+    // "prod_id" as a top-level key, or even "data.product.id"
+    // as a single flat key).
+    const flat = (body as Record<string, unknown>)[path];
+    if (flat !== undefined && flat !== null && flat !== "") {
+      return String(flat);
+    }
+  }
+  return "";
+}
+
+// =============================================================
+// UPSELL PRODUCT ALLOWLIST — configured via env so new vendor
+// accounts (João's, future managers') can be onboarded without
+// a code redeploy. Comma-separated numeric Hotmart product IDs.
+// Falls back to just the original 7822152 (mine) if the env var
+// is unset.
+//   HOTMART_UPSELL_PRODUCT_IDS=7822152,<joao_197>,<joao_97>
+// =============================================================
+function getUpsellProductIds(): Set<string> {
+  const raw = process.env.HOTMART_UPSELL_PRODUCT_IDS || "7822152";
+  return new Set(
+    raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
+// =============================================================
+// EVENT NORMALIZATION — Hotmart uses different casings/formats
+// across postback versions. Normalize to UPPER_SNAKE + strip
+// dots so PURCHASE_APPROVED == purchase.approved == purchase_approved.
+// =============================================================
+function normalizeEvent(raw: string): string {
+  return raw.toUpperCase().replace(/\./g, "_").trim();
+}
+const APPROVED_EVENTS = new Set(["PURCHASE_APPROVED", "PURCHASE_COMPLETE"]);
+const REFUND_EVENTS = new Set([
+  "PURCHASE_REFUNDED",
+  "PURCHASE_CANCELED",
+  "PURCHASE_CHARGEBACK",
+  "PURCHASE_PROTEST",
+]);
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await parseHotmartBody(req);
+    if (!body) {
+      console.error(
+        "[hotmart-webhook] parse FAILED — neither valid JSON nor form-encoded",
+      );
+      return NextResponse.json(
+        { error: "Invalid payload." },
+        { status: 400 },
+      );
+    }
+
+    // Extract fields defensively — every path Hotmart is known to
+    // use across Postback 1.0 (flat) and 2.0 (nested JSON).
+    const productId = pickField(body, [
+      "data.product.id",
+      "data.purchase.product.id",
+      "product.id",
+      "prod_id",
+      "prod",
+      "product_id",
+      "productid",
+      "product",
+    ]);
+    const rawEvent = pickField(body, ["event", "event_type", "type"]);
+    const eventType = normalizeEvent(rawEvent);
+    const txId = pickField(body, [
+      "data.purchase.transaction",
+      "data.purchase.transaction_id",
+      "data.purchase.id",
+      "data.transaction",
+      "transaction",
+      "transaction_id",
+      "trans_id",
+      "trans",
+    ]);
+    const buyerEmail = pickField(body, [
+      "data.buyer.email",
+      "buyer.email",
+      "customer.email",
+      "buyer_email",
+      "customer_email",
+      "email",
+    ]);
+    const buyerName =
+      pickField(body, [
+        "data.buyer.name",
+        "buyer.name",
+        "customer.name",
+        "buyer_name",
+        "customer_name",
+        "name",
+      ]) || "";
+    const offerCode = pickField(body, [
+      "data.purchase.offer.code",
+      "data.purchase.offer_code",
+      "purchase.offer.code",
+      "offer_code",
+      "offer",
+    ]);
+    const productName = pickField(body, [
+      "data.product.name",
+      "product.name",
+      "prod_name",
+      "product_name",
+    ]);
+    const rawAmount = pickField(body, [
+      "data.purchase.price.value",
+      "purchase.price.value",
+      "price",
+      "value",
+      "amount",
+    ]);
+    const currency = pickField(body, [
+      "data.purchase.price.currency_code",
+      "purchase.price.currency_code",
+      "currency",
+      "currency_code",
+    ]) || "USD";
+    const occurredAtRaw = pickField(body, [
+      "data.purchase.approved_date",
+      "purchase.approved_date",
+      "approved_date",
+    ]);
+
+    console.log(
+      `[hotmart-webhook] received event=${rawEvent}(→${eventType}) product_id=${productId} transaction=${txId} email=${buyerEmail} name=${buyerName || "-"} offer=${offerCode || "-"}`,
+    );
+
+    const upsellIds = getUpsellProductIds();
+    const isUpsellProduct = upsellIds.has(productId);
+
+    // ============================================================
+    // BRANCH: upsell (AI Model Customization Service — $197/$97)
+    // Env-driven allowlist replaces the old hardcoded "7822152".
+    // ============================================================
+    if (isUpsellProduct) {
+      if (APPROVED_EVENTS.has(eventType)) {
+        if (!txId || !buyerEmail) {
           console.error(
-            `[hotmart-webhook] upsell missing required fields txId=${txId} email=${customerEmail} event=${eventType}`,
+            `[hotmart-webhook] upsell missing required fields txId=${txId} email=${buyerEmail} event=${eventType}`,
           );
           return NextResponse.json(
             { error: "Missing transaction or email." },
             { status: 400 },
           );
         }
-        const normalizedEmail = String(customerEmail).toLowerCase().trim();
+        const normalizedEmail = buyerEmail.toLowerCase().trim();
+        const customerName = buyerName || null;
 
         // Upsert by hotmart_transaction_id for idempotency. With
         // ignoreDuplicates the row isn't reliably returned by the
@@ -77,7 +257,7 @@ export async function POST(req: NextRequest) {
               customer_email: normalizedEmail,
               customer_name: customerName,
               status: "pending",
-              notes: `offer_code=${offerCode}`,
+              notes: `offer_code=${offerCode || "?"} product_id=${productId}`,
             },
             {
               onConflict: "hotmart_transaction_id",
@@ -110,7 +290,7 @@ export async function POST(req: NextRequest) {
         }
 
         const preferencesUrl = `https://aimodelmethods.com/upsell-2/preferences/${row.id}`;
-        const upsellFirstName = customerName?.split(" ")[0] || "there";
+        const upsellFirstName = (customerName || "").split(" ")[0] || "there";
 
         const { error: emailErr } = await resend.emails.send({
           from: "AIM Method <noreply@aimodelmethods.com>",
@@ -167,13 +347,13 @@ export async function POST(req: NextRequest) {
         }
 
         console.log(
-          `[hotmart-webhook] upsell order created order_id=${row.id} email=${normalizedEmail} txId=${txId} offer=${offerCode}`,
+          `[hotmart-webhook] upsell order created order_id=${row.id} email=${normalizedEmail} txId=${txId} offer=${offerCode} product_id=${productId}`,
         );
         return NextResponse.json(
           { ok: true, branch: "upsell", order_id: row.id },
           { status: 200 },
         );
-      } else if (REFUNDED.includes(eventType)) {
+      } else if (REFUND_EVENTS.has(eventType)) {
         if (!txId) {
           console.warn(
             `[hotmart-webhook] upsell refund without txId — cannot match row event=${eventType}`,
@@ -209,75 +389,84 @@ export async function POST(req: NextRequest) {
           { status: 200 },
         );
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[hotmart-webhook] upsell error err=${msg}`);
-      return NextResponse.json({ error: "Internal error." }, { status: 500 });
     }
-  }
 
-  // ============================================================
-  // DEFAULT: $29 course flow (Hotmart product 7659354 — unchanged)
-  // ============================================================
+    // ============================================================
+    // DEFAULT: $29 course flow — everything that isn't an upsell.
+    // ============================================================
 
-  // Only process approved/completed purchases
-  const ACCEPTED_EVENTS = ["PURCHASE_APPROVED", "PURCHASE_COMPLETE"];
-  if (!ACCEPTED_EVENTS.includes(body.event)) {
-    return NextResponse.json({ ok: true, message: "Event ignored." });
-  }
+    if (!APPROVED_EVENTS.has(eventType)) {
+      console.log(
+        `[hotmart-webhook] default event ignored event=${eventType} product_id=${productId}`,
+      );
+      return NextResponse.json({ ok: true, message: "Event ignored." });
+    }
 
-  const email: string | undefined = body?.data?.buyer?.email;
-  const fullName: string = body?.data?.buyer?.name ?? "Student";
-  const firstName = fullName.split(" ")[0] || "Student";
+    if (!buyerEmail) {
+      console.error(
+        `[hotmart-webhook] no email in payload — bodyKeys=${Object.keys(body).slice(0, 20).join(",")}`,
+      );
+      return NextResponse.json(
+        { error: "No email in payload." },
+        { status: 400 },
+      );
+    }
 
-  if (!email) {
-    return NextResponse.json({ error: "No email in payload." }, { status: 400 });
-  }
+    const normalizedEmail = buyerEmail.toLowerCase().trim();
+    const fullName = buyerName || "Student";
+    const firstName = fullName.split(" ")[0] || "Student";
 
-  const normalizedEmail = email.toLowerCase().trim();
+    // Check if user already exists — if not, create them
+    const { data: existing } = await supabaseAdmin
+      .from("users")
+      .select("email")
+      .eq("email", normalizedEmail)
+      .maybeSingle();
 
-  // Check if user already exists — if not, create them
-  const { data: existing } = await supabaseAdmin
-    .from("users")
-    .select("email")
-    .eq("email", normalizedEmail)
-    .single();
+    if (!existing) {
+      const { error: insertError } = await insertUserWithSource({
+        email: normalizedEmail,
+        name: firstName,
+        source: "hotmart",
+      });
 
-  if (!existing) {
-    const { error: insertError } = await insertUserWithSource({
+      if (insertError) {
+        console.error(
+          `[hotmart-webhook] user insert FAILED email=${normalizedEmail} err=${insertError.message}`,
+        );
+        return NextResponse.json(
+          { error: "Failed to create user." },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Generate magic link — 30-day expiry for welcome email
+    const token = crypto.randomUUID();
+    const expiresAt = new Date(
+      Date.now() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const { error: linkError } = await supabaseAdmin.from("magic_links").insert({
       email: normalizedEmail,
-      name: firstName,
-      source: "hotmart",
+      token,
+      expires_at: expiresAt,
     });
 
-    if (insertError) {
-      console.error("Supabase insert error:", insertError);
-      return NextResponse.json({ error: "Failed to create user." }, { status: 500 });
+    if (linkError) {
+      console.error(
+        `[hotmart-webhook] magic link insert FAILED email=${normalizedEmail} err=${linkError.message}`,
+      );
+      // User was created — don't fail the webhook, but the button will 404 when clicked
     }
-  }
 
-  // Generate magic link — 30-day expiry for welcome email
-  const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const loginUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;
 
-  const { error: linkError } = await supabaseAdmin.from("magic_links").insert({
-    email: normalizedEmail,
-    token,
-    expires_at: expiresAt,
-  });
-
-  if (linkError) {
-    console.error("Failed to create magic link:", linkError);
-    // User was created — don't fail the webhook
-  }
-
-  const loginUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;
-
-  const { error: emailError } = await resend.emails.send({
-    from: "AIM Method <noreply@aimodelmethods.com>",
-    to: normalizedEmail,
-    subject: "Welcome to AIM Method!",
-    html: `
+    const { error: emailError } = await resend.emails.send({
+      from: "AIM Method <noreply@aimodelmethods.com>",
+      to: normalizedEmail,
+      subject: "Welcome to AIM Method!",
+      html: `
       <span style="display:none;font-size:1px;max-height:0;overflow:hidden;opacity:0;">Click here to access your AIM Method course</span>
       <div style="background-color:#0a0a0a;padding:48px 20px;font-family:sans-serif;">
         <div style="max-width:520px;margin:0 auto;">
@@ -314,81 +503,88 @@ export async function POST(req: NextRequest) {
         </div>
       </div>
     `,
-  });
+    });
 
-  if (emailError) {
-    console.error("Resend email error:", emailError);
-    return NextResponse.json({ error: "Failed to send welcome email." }, { status: 500 });
-  }
-
-  const transactionId =
-    body?.data?.purchase?.transaction ??
-    body?.data?.purchase?.transaction_id ??
-    body?.data?.purchase?.id ??
-    body?.data?.transaction;
-
-  const rawAmount = Number(body?.data?.purchase?.price?.value ?? 0);
-  const amountCents = Math.round(rawAmount * 100);
-  const occurredAt =
-    body?.data?.purchase?.approved_date ?? new Date().toISOString();
-  const currency = body?.data?.purchase?.price?.currency_code ?? "USD";
-  const productName = body?.data?.product?.name ?? null;
-  const buyerName = body?.data?.buyer?.name ?? null;
-
-  if (!transactionId) {
-    // Hotmart test postbacks frequently omit transaction IDs; we can't
-    // create a sales row (UNIQUE NOT NULL constraint), but the user IS
-    // provisioned above. Log loudly so this isn't invisible.
-    console.error(
-      `[hotmart-webhook] sales insert SKIPPED — no transaction id in payload. event=${body?.event} email=${normalizedEmail} amount=${amountCents}`,
-    );
-  } else {
-    const { error: salesInsertError } = await supabaseAdmin
-      .from("sales")
-      .upsert(
-        {
-          hotmart_transaction_id: String(transactionId),
-          buyer_name: buyerName,
-          buyer_email: normalizedEmail,
-          amount_cents: amountCents,
-          currency,
-          product_name: productName,
-          status: "approved",
-          occurred_at: occurredAt,
-          raw_payload: body,
-        },
-        { onConflict: "hotmart_transaction_id", ignoreDuplicates: true },
-      );
-
-    if (salesInsertError) {
-      // Best-effort: keep the webhook response successful to avoid retry
-      // storms, but log enough detail to debug from Vercel logs.
+    if (emailError) {
       console.error(
-        `[hotmart-webhook] sales insert FAILED — code=${(salesInsertError as { code?: string }).code ?? "?"} message="${salesInsertError.message}" txId=${transactionId} email=${normalizedEmail}`,
+        `[hotmart-webhook] welcome email FAILED email=${normalizedEmail} err=${emailError.message || emailError}`,
       );
-    } else {
-      console.log(
-        `[hotmart-webhook] sales row recorded txId=${transactionId} email=${normalizedEmail} amount=${amountCents}`,
+      return NextResponse.json(
+        { error: "Failed to send welcome email." },
+        { status: 500 },
       );
     }
-  }
 
-  // Realtime Discord notification — fires for every approved purchase
-  // regardless of whether the sales insert succeeded or was skipped.
-  // Wrapped in best-effort by notifySale() itself.
-  if (body.event === "PURCHASE_APPROVED") {
-    await notifySale({
-      channel: "hotmart",
-      email: normalizedEmail,
-      name: buyerName,
-      amountCents,
-      currency,
-      product: productName,
-      extraNote: transactionId
-        ? null
-        : "⚠️ Test postback — no transaction id, sales row was skipped.",
-    });
-  }
+    const amountCents = rawAmount ? Math.round(Number(rawAmount) * 100) : 0;
+    const occurredAt = occurredAtRaw || new Date().toISOString();
 
-  return NextResponse.json({ ok: true });
+    if (!txId) {
+      // Hotmart test postbacks frequently omit transaction IDs; we can't
+      // create a sales row (UNIQUE NOT NULL constraint), but the user IS
+      // provisioned above. Log loudly so this isn't invisible.
+      console.error(
+        `[hotmart-webhook] sales insert SKIPPED — no transaction id in payload. event=${eventType} email=${normalizedEmail} amount=${amountCents}`,
+      );
+    } else {
+      const { error: salesInsertError } = await supabaseAdmin
+        .from("sales")
+        .upsert(
+          {
+            hotmart_transaction_id: String(txId),
+            buyer_name: buyerName || null,
+            buyer_email: normalizedEmail,
+            amount_cents: amountCents,
+            currency,
+            product_name: productName || null,
+            status: "approved",
+            occurred_at: occurredAt,
+            raw_payload: body,
+          },
+          { onConflict: "hotmart_transaction_id", ignoreDuplicates: true },
+        );
+
+      if (salesInsertError) {
+        // Best-effort: keep the webhook response successful to avoid retry
+        // storms, but log enough detail to debug from Vercel logs.
+        console.error(
+          `[hotmart-webhook] sales insert FAILED — code=${(salesInsertError as { code?: string }).code ?? "?"} message="${salesInsertError.message}" txId=${txId} email=${normalizedEmail}`,
+        );
+      } else {
+        console.log(
+          `[hotmart-webhook] sales row recorded txId=${txId} email=${normalizedEmail} amount=${amountCents}`,
+        );
+      }
+    }
+
+    // Realtime Discord notification — fires for every approved purchase
+    // regardless of whether the sales insert succeeded or was skipped.
+    // Wrapped in best-effort by notifySale() itself.
+    if (eventType === "PURCHASE_APPROVED") {
+      await notifySale({
+        channel: "hotmart",
+        email: normalizedEmail,
+        name: buyerName || null,
+        amountCents,
+        currency,
+        product: productName || null,
+        extraNote: txId
+          ? null
+          : "⚠️ Test postback — no transaction id, sales row was skipped.",
+      });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    // Top-level catch — was previously missing on the default branch, so
+    // any exception (Supabase timeout, Resend outage, malformed payload
+    // that slipped past the parser) returned an opaque 500 with zero
+    // trace in Vercel logs. Now every exception lands here with a full
+    // stack for post-mortem.
+    const msg = err instanceof Error ? err.stack || err.message : String(err);
+    console.error(`[hotmart-webhook] UNCAUGHT ERROR — ${msg}`);
+    return NextResponse.json(
+      { error: "Internal error." },
+      { status: 500 },
+    );
+  }
 }
