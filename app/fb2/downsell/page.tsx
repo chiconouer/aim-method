@@ -2,29 +2,29 @@
 // FB2 variant — Downsell ($97 AI Model Customization)
 // -------------------------------------------------------------
 // Cloned from /ads/downsell-2 for the SECOND Facebook paid-traffic
-// funnel (new traffic manager). Spin wheel, copy, layout, and
+// funnel (new traffic manager). Spin wheel, copy, layout, and the
 // $100-off reveal are identical to the source.
 //
-// Differences vs /ads/downsell-2:
-//   - NO Digistore wiring. CLAIM MY DISCOUNT is a placeholder
-//     `href="#"` with preventDefault until the new manager wires
-//     their accept flow.
-//   - NO tracking pixel. <Fb2Tracking /> placeholder replaces
-//     <TikTokPixel />.
-//   - "No thanks" routes intra-app to /upsell-2/thank-you (the
-//     existing static confirmation page that tells the buyer their
-//     access is on the way by email) instead of through Digistore
-//     admin's redirect chain. Honest UX since this is the end of
-//     the fb2 chain — the buyer's main-product access was already
-//     provisioned by their checkout webhook (whatever the new
-//     manager configures).
+// Checkout flow: after the wheel win, the Hotmart Sales Funnel
+// widget (via hotmart-checkout-elements.js) mounts inside the
+// victory box where the original CLAIM button used to live.
+// Hotmart's widget renders its own accept + decline UI — the
+// "No thanks / take me to the course" outline anchor is gone
+// because the widget handles decline internally, routed by
+// whatever the new manager configures on the Hotmart product side.
 // =============================================================
 
 "use client";
 
+import Script from "next/script";
 import { useState } from "react";
 import { SpinWheel, type SpinWheelSlice } from "@/components/SpinWheel";
 import { Fb2Tracking } from "@/components/Fb2Tracking";
+import {
+  HOTMART_ELEMENTS_SRC,
+  HOTMART_SALES_FUNNEL_ID,
+  useHotmartSalesFunnel,
+} from "@/lib/hotmartSalesFunnel";
 
 // Slice order matches /ads/downsell-2 + organic /downsell-2
 // pixel-for-pixel — gold slice (index 3) is the winning $100 OFF.
@@ -37,20 +37,21 @@ const SLICES: SpinWheelSlice[] = [
   { label: "TRY LATER",      color: "#4c1d95" },
 ];
 
-const THANK_YOU_HREF = "/upsell-2/thank-you";
-
 export default function Fb2DownsellPage() {
   const [won, setWon] = useState(false);
 
-  // CLAIM is a placeholder until the new manager wires their accept
-  // flow. preventDefault stops the dead `#` href from scrolling.
-  function handleAcceptPlaceholder(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-  }
+  // Widget mounts once the wheel finishes and `won` flips true. Hook
+  // handles StrictMode double-fire + poll-until-ready — see
+  // lib/hotmartSalesFunnel.ts.
+  useHotmartSalesFunnel(won);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white px-5 py-12 sm:py-16">
       <Fb2Tracking />
+      {/* Hotmart Sales Funnel loader — fetches on afterInteractive so
+          the JS is warm before the wheel finishes. The checkoutElements
+          global it defines is consumed by the hook above. */}
+      <Script src={HOTMART_ELEMENTS_SRC} strategy="afterInteractive" />
       <div className="max-w-2xl mx-auto text-center">
 
         {/* HEADLINE */}
@@ -81,7 +82,7 @@ export default function Fb2DownsellPage() {
           onComplete={() => setWon(true)}
         />
 
-        {/* VICTORY + PURCHASE BOX */}
+        {/* VICTORY + WIDGET BOX */}
         {won && (
           <div style={{ animation: "fadeInUp 0.8s ease-out" }}>
             <h2 className="text-3xl font-bold text-green-400 mt-10 animate-pulse">
@@ -101,27 +102,15 @@ export default function Fb2DownsellPage() {
                 Save $100 — final offer
               </p>
 
-              <a
-                href="#"
-                onClick={handleAcceptPlaceholder}
-                className="inline-block mt-6 bg-green-500 hover:bg-green-600 transition-colors text-white font-bold text-lg px-8 py-4 rounded-xl shadow-lg shadow-green-500/30"
-              >
-                🚀 CLAIM MY DISCOUNT
-              </a>
+              {/* Hotmart Sales Funnel widget slot — replaces the old
+                  CLAIM MY DISCOUNT + "No thanks" placeholder pair.
+                  min-h reserves vertical space so the layout doesn't
+                  jump when Hotmart injects its own markup. */}
+              <div id={HOTMART_SALES_FUNNEL_ID} className="mt-6 min-h-[80px]" />
 
             </div>
           </div>
         )}
-
-        {/* NO THANKS → intra-app thank-you confirmation page */}
-        <div className="mt-12">
-          <a
-            href={THANK_YOU_HREF}
-            className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
-          >
-            No thanks, take me to the course
-          </a>
-        </div>
 
       </div>
 
