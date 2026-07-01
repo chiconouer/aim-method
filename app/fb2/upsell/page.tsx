@@ -2,27 +2,21 @@
 // FB2 variant — Upsell ($197 AI Model Customization)
 // -------------------------------------------------------------
 // Cloned from /ads/upsell-2 for the SECOND Facebook paid-traffic
-// funnel (new traffic manager). Layout, copy, Vturb player, 120 s
-// reveal timer, and dead-clicks-prevention pattern are identical
-// to the source.
+// funnel (new traffic manager). Layout, copy, Vturb player, and
+// 120 s reveal timer are identical to the source.
 //
-// Differences vs /ads/upsell-2:
-//   - NO Digistore wiring. The new manager has not provided their
-//     checkout/upsell mechanism yet, so:
-//       YES button → placeholder `href="#"` with preventDefault
-//       NO  button → intra-app nav to /fb2/downsell
-//     The new manager will swap the YES href + onClick once their
-//     1-click flow is configured (Digistore, Hotmart, Stripe, …).
-//   - NO tracking pixel. <Fb2Tracking /> is the no-op placeholder
-//     until the new manager provides a pixel ID. Replaces
-//     <TikTokPixel /> from the original.
-//   - Decline routes intra-app (/fb2/downsell) instead of through
-//     Digistore admin's redirect chain.
+// Checkout flow: after the 120 s reveal, the Hotmart Sales Funnel
+// widget (via hotmart-checkout-elements.js) mounts into the slot
+// where the original YES/NO buttons used to live. Hotmart's widget
+// renders its own accept + decline UI and handles the 1-click
+// upsell + product-configured decline redirect internally — so no
+// hardcoded checkout URLs or intra-app decline routes live in this
+// file anymore. Whatever the new manager configures on the Hotmart
+// product side is what runs.
 //
-// Untouched: 120 s setTimeout reveal, Vturb player id
-// (vid-6a20bf63c681d550d423791a — shares analytics with /ads/upsell-2
-// for now; new manager can swap to their own player by changing the
-// VTURB_PLAYER_SRC + the smartplayer id below), all copy + layout.
+// Untouched vs earlier revisions: 120 s setTimeout reveal, Vturb
+// player id (vid-6a20bf63c681d550d423791a), <Fb2Tracking /> pixel,
+// all copy + layout.
 // =============================================================
 
 "use client";
@@ -30,6 +24,11 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import { Fb2Tracking } from "@/components/Fb2Tracking";
+import {
+  HOTMART_ELEMENTS_SRC,
+  HOTMART_SALES_FUNNEL_ID,
+  useHotmartSalesFunnel,
+} from "@/lib/hotmartSalesFunnel";
 
 // <vturb-smartplayer> JSX type is declared globally in app/sales/page.tsx
 // (module augmentation merges across files), so no local declaration here.
@@ -37,32 +36,28 @@ import { Fb2Tracking } from "@/components/Fb2Tracking";
 const VTURB_PLAYER_SRC =
   "https://scripts.converteai.net/ee166677-475b-4486-89b7-8d5715864e85/players/6a20bf63c681d550d423791a/v4/player.js";
 
-// PLACEHOLDER — empty until the new manager wires their accept flow.
-// Buttons use href="#" + onClick preventDefault so dead clicks don't
-// scroll to top and don't leak to Digistore.
-const DOWNSELL_HREF = "/fb2/downsell";
-
 export default function Fb2UpsellPage() {
   // 120s delayed-CTA timer state — independent of the video player
   const [showCTAs, setShowCTAs] = useState(false);
 
-  // Reveal upgrade CTAs 120 seconds after mount
+  // Reveal the Hotmart Sales Funnel widget 120 seconds after mount
   useEffect(() => {
     const t = setTimeout(() => setShowCTAs(true), 120_000);
     return () => clearTimeout(t);
   }, []);
 
-  // YES is a placeholder until the new manager provides their accept
-  // flow. preventDefault stops the dead `#` href from scrolling the
-  // page to the top.
-  function handleAcceptPlaceholder(e: React.MouseEvent<HTMLAnchorElement>) {
-    e.preventDefault();
-  }
+  // Waits for the Hotmart script + widget container, then mounts
+  // exactly once. Idempotent + defensive — see lib/hotmartSalesFunnel.ts.
+  useHotmartSalesFunnel(showCTAs);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex flex-col">
       <Fb2Tracking />
       <Script src={VTURB_PLAYER_SRC} strategy="afterInteractive" />
+      {/* Hotmart Sales Funnel loader — starts fetching on afterInteractive
+          so the JS is warm well before the 120 s reveal timer fires. The
+          checkoutElements global it defines is consumed by the hook above. */}
+      <Script src={HOTMART_ELEMENTS_SRC} strategy="afterInteractive" />
 
       {/* NAV */}
       <nav className="flex items-center justify-center py-3 border-b border-white/5">
@@ -121,51 +116,22 @@ export default function Fb2UpsellPage() {
             />
           </div>
 
-          {/* Upgrade CTAs — hidden until 120s elapses */}
+          {/* Hotmart Sales Funnel widget slot — replaces the old YES/NO
+              placeholder buttons. Hidden until 120 s elapses; the widget
+              itself only mounts when showCTAs flips (see the hook above),
+              so we don't paint an empty container into the DOM early.
+              min-h-[160px] reserves vertical space so the layout doesn't
+              jump when Hotmart injects its own markup. */}
           <div
             className={`mt-6 min-h-[160px] transition-opacity duration-700 ease-out ${
               showCTAs ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             aria-hidden={!showCTAs}
           >
-            {showCTAs && (
-              <>
-                <a
-                  href="#"
-                  onClick={handleAcceptPlaceholder}
-                  className="block w-full text-center text-white text-sm sm:text-base font-black py-4 sm:py-5 rounded-2xl relative overflow-hidden"
-                  style={{
-                    background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-                    boxShadow:
-                      "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-                    animation: "btnGlow 3s ease-in-out infinite",
-                  }}
-                >
-                  YES — UPGRADE MY ACCESS — $197
-                </a>
-                <p className="text-center text-[10px] text-gray-600 mt-2">
-                  One-time payment · Instant access · Lifetime model
-                </p>
-                <div className="text-center mt-6">
-                  <a
-                    href={DOWNSELL_HREF}
-                    className="inline-block outline-btn font-semibold py-2.5 px-5 rounded-xl text-sm"
-                  >
-                    No thanks
-                  </a>
-                </div>
-              </>
-            )}
+            {showCTAs && <div id={HOTMART_SALES_FUNNEL_ID} />}
           </div>
         </div>
       </main>
-
-      <style>{`
-        @keyframes btnGlow {
-          0%,100%{box-shadow:0 8px 32px rgba(124,58,237,0.5),inset 0 1px 0 rgba(255,255,255,0.15)}
-          50%{box-shadow:0 8px 48px rgba(124,58,237,0.8),inset 0 1px 0 rgba(255,255,255,0.15)}
-        }
-      `}</style>
     </div>
   );
 }
