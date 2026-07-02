@@ -21,6 +21,19 @@ export type AccessChannel =
   | "perfectpay"
   | "manual";
 
+/**
+ * Funnel origin classification — when the caller can determine which
+ * funnel produced the sale (e.g. from Hotmart product id), passing this
+ * replaces the generic "💰 NEW SALE 💰" header with a large color-coded
+ * heading so cross-funnel volume is trivial to eyeball in the feed.
+ *
+ *   - "organic"    → green banner (# 🟢 ORGÂNICO)
+ *   - "paid_fb2"   → red   banner (# 🔴 TRÁFEGO PAGO (FB2))
+ *
+ * Add new funnel labels here as new paid managers come online.
+ */
+export type Funnel = "organic" | "paid_fb2";
+
 export interface NotifySaleInput {
   channel: AccessChannel;
   /**
@@ -38,6 +51,21 @@ export interface NotifySaleInput {
   product?: string | null;
   /** Optional one-line extra context appended at the bottom of the message. */
   extraNote?: string | null;
+  /**
+   * Optional funnel classification. When present, the notification renders
+   * a large color-coded heading (# 🟢 ORGÂNICO or # 🔴 TRÁFEGO PAGO (FB2))
+   * INSTEAD of the generic "💰 NEW SALE 💰" banner. Only wired from the
+   * Hotmart route right now — other channels omit it and keep the legacy
+   * header. Refund events ignore this field (refund banner wins).
+   */
+  funnel?: Funnel;
+  /**
+   * Optional Hotmart `sck` tracking param (e.g. "organico", "fb2").
+   * Included as a small subtitle below the funnel banner for extra
+   * signal — NOT authoritative for the funnel classification (product id
+   * is). Ignored when `funnel` isn't set.
+   */
+  sck?: string | null;
 }
 
 const EXPECTED_CHANNELS: AccessChannel[] = ["hotmart", "stripe", "digistore"];
@@ -76,6 +104,18 @@ function channelLabel(channel: AccessChannel): string {
   )[channel];
 }
 
+// Discord markdown "# " renders as a large h1 heading — the point is to
+// make the funnel classification unmissable at the top of the message.
+// Colors chosen so organic (green) vs paid (red) is instantly scannable.
+function funnelHeader(funnel: Funnel): string {
+  return (
+    {
+      organic: "# 🟢 ORGÂNICO",
+      paid_fb2: "# 🔴 TRÁFEGO PAGO (FB2)",
+    } as const
+  )[funnel];
+}
+
 function buildMessage(input: NotifySaleInput): string {
   const { channel, eventKind, email, name, amountCents, currency, product, extraNote } = input;
   const displayName = (name ?? "").trim() || "Unknown name";
@@ -86,9 +126,15 @@ function buildMessage(input: NotifySaleInput): string {
   const lines: string[] = [];
 
   if (isRefund) {
-    // Refund header trumps the channel-based variant — a refund is never
-    // a "new sale" regardless of which gateway sent it.
+    // Refund header trumps every other variant — a refund is never
+    // a "new sale" regardless of which gateway sent it or which
+    // funnel produced the original purchase.
     lines.push("↩️ **REFUND / CHARGEBACK** ↩️");
+  } else if (input.funnel) {
+    // Funnel classification wins over the generic "NEW SALE" header
+    // when the caller passes one (currently: Hotmart route only). The
+    // banner is Discord "# " h1 so it dominates the message visually.
+    lines.push(funnelHeader(input.funnel));
   } else if (EXPECTED_CHANNELS.includes(channel)) {
     lines.push("💰 **NEW SALE** 💰");
   } else if (channel === "manual") {
@@ -100,6 +146,12 @@ function buildMessage(input: NotifySaleInput): string {
 
   lines.push("━━━━━━━━━━━━━━━━━━");
   lines.push(`📡 Channel: **${channelLabel(channel)}**`);
+  // sck is a secondary tracking signal we surface right under the
+  // channel line when it's known — only meaningful alongside the
+  // funnel banner (Hotmart route sets both).
+  if (input.funnel && input.sck) {
+    lines.push(`🔖 sck=${input.sck}`);
+  }
   lines.push(`👤 **${displayName}**`);
   lines.push(`📧 ${email || "No email"}`);
   if (amount) lines.push(`💵 **${amount}**`);
