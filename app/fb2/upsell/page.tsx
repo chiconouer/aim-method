@@ -14,9 +14,11 @@
 // file anymore. Whatever the new manager configures on the Hotmart
 // product side is what runs.
 //
-// Untouched vs earlier revisions: 120 s setTimeout reveal, Vturb
-// player id (vid-6a20bf63c681d550d423791a), <Fb2Tracking /> pixel,
-// all copy + layout.
+// Untouched vs earlier revisions: 120 s setTimeout reveal,
+// <Fb2Tracking /> pixel, all copy + layout. Vturb player id was
+// swapped 2026-07-01 (previously vid-6a20bf63c681d550d423791a) to
+// a new player under a separate converteai account so fb2 traffic
+// keeps its own Vturb analytics instead of sharing with /ads.
 // =============================================================
 
 "use client";
@@ -34,7 +36,7 @@ import {
 // (module augmentation merges across files), so no local declaration here.
 
 const VTURB_PLAYER_SRC =
-  "https://scripts.converteai.net/ee166677-475b-4486-89b7-8d5715864e85/players/6a20bf63c681d550d423791a/v4/player.js";
+  "https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a45d9982ca01f4886761967/v4/player.js";
 
 export default function Fb2UpsellPage() {
   // 120s delayed-CTA timer state — independent of the video player
@@ -111,7 +113,7 @@ export default function Fb2UpsellPage() {
               reserves space to avoid layout shift while loading. */}
           <div className="relative w-full aspect-video rounded-xl overflow-hidden bg-black mt-5 border border-white/5">
             <vturb-smartplayer
-              id="vid-6a20bf63c681d550d423791a"
+              id="vid-6a45d9982ca01f4886761967"
               style={{ display: "block", margin: "0 auto", width: "100%" }}
             />
           </div>
