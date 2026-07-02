@@ -119,6 +119,23 @@ function getUpsellProductIds(): Set<string> {
 }
 
 // =============================================================
+// FUNNEL CLASSIFICATION — maps Hotmart product IDs to the funnel
+// that produced the sale. Powers the color-coded Discord banner
+// (# 🟢 ORGÂNICO vs # 🔴 TRÁFEGO PAGO (FB2)) so the dono spots
+// paid-funnel volume without reading product names.
+//
+// Product ID is the source of truth — sck is only surfaced as a
+// secondary "🔖 sck=..." line for context, never used to override
+// the label.
+//
+// Add new paid-funnel product IDs here as new managers come online.
+// =============================================================
+const PAID_FB2_PRODUCT_IDS = new Set(["8039531", "8044010"]);
+function funnelFor(productId: string): "organic" | "paid_fb2" {
+  return PAID_FB2_PRODUCT_IDS.has(productId) ? "paid_fb2" : "organic";
+}
+
+// =============================================================
 // EVENT NORMALIZATION — Hotmart uses different casings/formats
 // across postback versions. Normalize to UPPER_SNAKE + strip
 // dots so PURCHASE_APPROVED == purchase.approved == purchase_approved.
@@ -218,6 +235,21 @@ export async function POST(req: NextRequest) {
       "data.purchase.approved_date",
       "purchase.approved_date",
       "approved_date",
+    ]);
+    // sck — Hotmart's checkout tracking param. Path varies by Postback
+    // version and vendor account setup. Secondary signal only — funnel
+    // classification uses productId (see funnelFor()). If none of these
+    // paths match, sck stays empty and the Discord message just omits
+    // the "🔖 sck=..." line.
+    const sck = pickField(body, [
+      "data.purchase.origin.sck",
+      "data.purchase.origin.xcod",
+      "data.checkout.sck",
+      "data.affiliations.0.source",
+      "data.affiliations.0.affiliation_code",
+      "purchase.origin.sck",
+      "sck",
+      "src",
     ]);
 
     console.log(
@@ -558,7 +590,9 @@ export async function POST(req: NextRequest) {
 
     // Realtime Discord notification — fires for every approved purchase
     // regardless of whether the sales insert succeeded or was skipped.
-    // Wrapped in best-effort by notifySale() itself.
+    // Wrapped in best-effort by notifySale() itself. `funnel` swaps the
+    // generic "NEW SALE" banner for a color-coded classification header
+    // (organic vs paid FB2); `sck` shows up as a secondary subtitle.
     if (eventType === "PURCHASE_APPROVED") {
       await notifySale({
         channel: "hotmart",
@@ -567,6 +601,8 @@ export async function POST(req: NextRequest) {
         amountCents,
         currency,
         product: productName || null,
+        funnel: funnelFor(productId),
+        sck: sck || null,
         extraNote: txId
           ? null
           : "⚠️ Test postback — no transaction id, sales row was skipped.",
