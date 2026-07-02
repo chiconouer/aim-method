@@ -1,27 +1,26 @@
 // =============================================================
-// FB2 / Sales page — Test A of the retention split. Renders the
-// shared <Fb2SalesTemplate/> with the original variant's props:
-// original Vturb player, checkoutMode=10 Hotmart URL with sck=fb2,
-// empty storageKeyPrefix (preserves the pre-refactor localStorage /
-// sessionStorage keys), and the step-10 funnel beacon for the
-// /quizfunnel dashboard.
+// FB2 / Sales page — Test A (quiz-driven) of the 4-way retention
+// split. Sits at the end of the /fb2/quiz path and is the only
+// variant that logs to quiz_funnel_events (step 10, platform=fb2)
+// so the /quizfunnel dashboard sees the "reached checkout" event.
 //
-// Everything the page used to render inline (582 lines: nav,
-// video, scroll indicator, reveal timer, CTAs, students ticker,
-// FAQ, fixed-bottom bar, animation keyframes) now lives in the
-// template file. This wrapper is intentionally small — any
-// upcoming retention variants (/fb2/sales-b, /fb2/sales-c) will
-// look identical to this file with different props.
+// Sibling variants (/fb2/sales-b, -c, -d) render the same template
+// with different player + sck + storageKeyPrefix props and skip
+// the funnel beacon — their retention lives in Vturb + Hotmart
+// sck attribution + Utmify UTM traces.
 //
-// Zero behavior change vs the pre-refactor version:
-//   - Same Vturb player id + script URL + m3u8 preload
-//   - Same CHECKOUT_URL with sck=fb2 (sck swap is a separate PR)
-//   - Same reveal timer (REVEAL_TIME=510 s in the template)
-//   - Same localStorage key "aim_sales_visited" and sessionStorage
-//     key "aim_checkout_recorded" (storageKeyPrefix="" makes the
-//     template append nothing to the base names)
-//   - Same step-10 funnel beacon with platform="fb2" (fires once
-//     per browser tab session on first CTA click)
+// Test A config:
+//   - Vturb player: vid-6a468d9550a718e59b282dbc
+//   - HLS media   : 6a468ce5c73572ad0f8dd1ce
+//   - Checkout    : Hotmart O106558433D, sck=fb2-quiz
+//     (was sck=fb2 pre-split; renamed to disambiguate the 4 tests
+//     in João's Hotmart reports — no code consumers match on sck
+//     literally, per the PR #106 audit)
+//   - storageKeyPrefix "" — preserves the original localStorage /
+//     sessionStorage keys so returning visitors keep their reveal
+//     state
+//   - onFirstCheckoutClick = recordReachedCheckout — fires the
+//     step-10 beacon
 // =============================================================
 
 "use client";
@@ -29,7 +28,7 @@ import { Fb2SalesTemplate } from "@/app/fb2/_components/Fb2SalesTemplate";
 import { getVisitorId } from "@/lib/visitor_id";
 
 const CHECKOUT_URL =
-  "https://pay.hotmart.com/O106558433D?checkoutMode=10&sck=fb2";
+  "https://pay.hotmart.com/O106558433D?checkoutMode=10&sck=fb2-quiz";
 
 // =============================================================
 // Funnel analytics beacon — POST to /api/quiz-funnel for the
@@ -69,9 +68,9 @@ function recordReachedCheckout(): void {
 export default function Fb2SalesPage() {
   return (
     <Fb2SalesTemplate
-      vturbPlayerId="vid-6a299481f97bdf6759cad9e2"
-      vturbPlayerScriptSrc="https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a299481f97bdf6759cad9e2/v4/player.js"
-      vturbHlsManifestUrl="https://cdn.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/69e6740ad9a2e678cbc93155/main.m3u8"
+      vturbPlayerId="vid-6a468d9550a718e59b282dbc"
+      vturbPlayerScriptSrc="https://scripts.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/players/6a468d9550a718e59b282dbc/v4/player.js"
+      vturbHlsManifestUrl="https://cdn.converteai.net/9fb1f5b1-1f24-41b5-8813-069e6a0bf8d0/6a468ce5c73572ad0f8dd1ce/main.m3u8"
       checkoutUrl={CHECKOUT_URL}
       storageKeyPrefix=""
       onFirstCheckoutClick={recordReachedCheckout}

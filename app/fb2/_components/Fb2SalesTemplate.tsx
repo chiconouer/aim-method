@@ -205,6 +205,17 @@ export function Fb2SalesTemplate({
   }
 
   useEffect(() => {
+    // Vturb perf marker — records the page-load timestamp so the
+    // player can later compute its own load-time metric against it.
+    // Must be set BEFORE the loader script runs. Same _plt pattern
+    // used on the organic /sales page.
+    const w = window as unknown as { _plt?: number };
+    w._plt =
+      w._plt ||
+      (performance.timeOrigin
+        ? performance.timeOrigin + performance.now()
+        : Date.now());
+
     // Load Vturb script for the specific player of this variant.
     // The preload hint below the root <div> primes the browser to
     // fetch this URL before useEffect even runs, so by the time
