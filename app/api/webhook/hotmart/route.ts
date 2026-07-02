@@ -378,6 +378,29 @@ export async function POST(req: NextRequest) {
           );
         }
 
+        // Realtime Discord notification for the upsell sale — same
+        // funnel banner + sck subtitle the default $29 branch uses
+        // (added in PR #106). Without this, $197/$97 AI Model
+        // Customization purchases never showed up in the sales feed
+        // even though the buyer + preferences email were provisioned.
+        // notifySale is best-effort and never throws, so the return
+        // below is unconditional. amountCents is parsed here (rawAmount
+        // is a string from pickField) instead of reusing the default
+        // branch's computation since we return before reaching it.
+        const upsellAmountCents = rawAmount
+          ? Math.round(Number(rawAmount) * 100)
+          : 0;
+        await notifySale({
+          channel: "hotmart",
+          email: normalizedEmail,
+          name: customerName,
+          amountCents: upsellAmountCents,
+          currency,
+          product: productName || null,
+          funnel: funnelFor(productId),
+          sck: sck || null,
+        });
+
         console.log(
           `[hotmart-webhook] upsell order created order_id=${row.id} email=${normalizedEmail} txId=${txId} offer=${offerCode} product_id=${productId}`,
         );
