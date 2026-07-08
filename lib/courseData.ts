@@ -50,14 +50,12 @@ export const MODULES: Module[] = [
       { id: 1, title: "FEED POSTS", thumbnail: "/thumbnails/thumb-m4-l1.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/UVndQOsClrg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
       { id: 2, title: "STORIES", thumbnail: "/thumbnails/thumb-m4-l2.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/71cVewCNER0" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
       { id: 3, title: "VIRAL REELS", thumbnail: "/thumbnails/thumb-m4-l3.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/F01C5TB-534" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
-      { id: 4, title: "NSFW CONTENT", thumbnail: "/thumbnails/thumb-m4-l4.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/-xiKETCINeY" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`, resourceLink: { url: "https://www.notion.so/NSFW-Prompt-and-Content-Examples-95248ec020df4958b46316fe54bad311", label: "📂 Access NSFW Content Examples", warning: "⚠️ Adults only — 18+" } },
     ],
   },
   {
     id: 5,
     title: "Monetizing Your AI Model",
     lessons: [
-      { id: 1, title: "FANVUE SETUP", thumbnail: "/thumbnails/thumb-m5-l1.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/r4icP4g1dGY" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
       { id: 2, title: "ENCRYPTED LINK", thumbnail: "/thumbnails/thumb-m5-l2.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/1iiwf9HS2_k" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
       { id: 3, title: "TRAFFIC → $$$", thumbnail: "/thumbnails/thumb-m5-l3.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/4PuQvldgU9s" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
       { id: 4, title: "SCALE INCOME", thumbnail: "/thumbnails/thumb-m5-l4.jpg", videoEmbed: `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/CA2dp_XHGVU" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` },
