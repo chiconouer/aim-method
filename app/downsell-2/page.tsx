@@ -6,16 +6,19 @@ import { SpinWheel, type SpinWheelSlice } from "@/components/SpinWheel";
 // Slice order matches the original page exactly so the visible wheel layout
 // and the rigged stop angles stay identical pixel-for-pixel:
 //   0  SPIN AGAIN  (1st spin lands here — tease)
-//   1  $50 OFF
+//   1  $10 OFF
 //   2  SPIN AGAIN
-//   3  $100 OFF    (2nd spin lands here — gold winning slice)
+//   3  $20 OFF     (2nd spin lands here — gold winning slice)
 //   4  FREE BONUS
 //   5  TRY LATER
+// Prizes rebalanced 2026-07 with the $197 → $67 / $97 → $47 organic
+// price drop — $20 OFF represents ~30% of the $67 base, matching the
+// psychological weight of the old $100 OFF on the old $197 base.
 const SLICES: SpinWheelSlice[] = [
   { label: "SPIN AGAIN 🎰", color: "#8b5cf6" },
-  { label: "$50 OFF",        color: "#4c1d95" },
+  { label: "$10 OFF",        color: "#4c1d95" },
   { label: "SPIN AGAIN 🎰", color: "#8b5cf6" },
-  { label: "$100 OFF",       color: "#fbbf24" },
+  { label: "$20 OFF",        color: "#fbbf24" },
   { label: "FREE BONUS",     color: "#8b5cf6" },
   { label: "TRY LATER",      color: "#4c1d95" },
 ];
@@ -39,7 +42,7 @@ export default function DownsellPage() {
 
         {/* BODY */}
         <p className="text-base text-neutral-200 mt-8 max-w-xl mx-auto leading-relaxed">
-          I know having me create your AI model could accelerate your path by 5x — because you&apos;d already have a 100% professional model built personally by me. That&apos;s why I want to give you one more chance to unlock an extra $100 discount.
+          I know having me create your AI model could accelerate your path by 5x — because you&apos;d already have a 100% professional model built personally by me. That&apos;s why I want to give you one more chance to unlock an extra $20 discount.
         </p>
 
         {/* CTA TEXT */}
@@ -59,20 +62,20 @@ export default function DownsellPage() {
         {won && (
           <div style={{ animation: "fadeInUp 0.8s ease-out" }}>
             <h2 className="text-3xl font-bold text-green-400 mt-10 animate-pulse">
-              🎉 YOU JUST UNLOCKED $100 OFF! 🎉
+              🎉 YOU JUST UNLOCKED $20 OFF! 🎉
             </h2>
             <p className="text-base text-neutral-300 mt-3">
-              Your special price has been activated
+              Get everything for just <span className="text-green-400 font-bold">$47</span> instead of <span className="line-through text-neutral-500">$67</span>
             </p>
 
             <div className="max-w-md mx-auto mt-8 bg-[#111] border border-green-500/40 rounded-2xl p-8 shadow-lg shadow-green-500/10">
               <p className="text-sm text-neutral-400">Your exclusive price:</p>
               <p className="mt-2">
-                <span className="text-5xl font-bold text-green-400">$97</span>
-                <span className="text-2xl text-neutral-500 line-through ml-2">$197</span>
+                <span className="text-5xl font-bold text-green-400">$47</span>
+                <span className="text-2xl text-neutral-500 line-through ml-2">$67</span>
               </p>
               <p className="text-sm text-neutral-400 mt-2">
-                Save $100 — final offer
+                Save $20 — final offer
               </p>
 
               <a

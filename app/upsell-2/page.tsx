@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Black-hat $197 checkout — Hotmart product U106013301D, offer l3jwqomo.
+// Black-hat $67 checkout (was $197) — Hotmart product U106013301D,
+// offer l3jwqomo. Offer code unchanged; Hotmart is configured with
+// the new price on their side. If you want to revert to $197 you
+// only need to swap the price back in the JSX below + the scarcity
+// banner — checkout URL stays as-is.
 const CHECKOUT_URL = "https://pay.hotmart.com/U106013301D?off=l3jwqomo&checkoutMode=10&sck=organico";
 const DOWNSELL_HREF = "/downsell-2";
 
@@ -117,6 +121,54 @@ export default function UpsellPage() {
           >
             {showCTAs && (
               <>
+                {/* SCARCITY BANNER — high-contrast red/orange gradient box
+                    that lands directly above the checkout button so the
+                    eye stops on it BEFORE the CTA. Reveals together with
+                    the button (same {showCTAs && ...} gate — never
+                    visible before the 120s pitch moment). */}
+                <div
+                  className="mb-5 rounded-2xl p-5 sm:p-6 text-center border-2"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(239,68,68,0.18), rgba(251,146,60,0.18))",
+                    borderColor: "rgba(239,68,68,0.75)",
+                    boxShadow:
+                      "0 0 40px rgba(239,68,68,0.35), inset 0 0 20px rgba(239,68,68,0.12)",
+                    animation: "urgentPulse 2s ease-in-out infinite",
+                  }}
+                >
+                  <p
+                    className="text-red-400 font-black text-2xl sm:text-3xl uppercase tracking-wide leading-tight"
+                    style={{ textShadow: "0 0 20px rgba(239,68,68,0.6)" }}
+                  >
+                    🔥 Only 5 Spots Left
+                  </p>
+                  <p className="text-white/90 text-sm sm:text-base font-semibold mt-3 leading-snug">
+                    Because of that, you&apos;re{" "}
+                    <span className="text-yellow-300 font-black">NOT</span>{" "}
+                    paying $197 today.
+                  </p>
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <span className="text-gray-400 text-lg sm:text-xl line-through decoration-2">
+                      $197
+                    </span>
+                    <span className="text-gray-500 text-lg" aria-hidden="true">
+                      →
+                    </span>
+                    <span
+                      className="text-green-400 font-black text-5xl sm:text-6xl leading-none"
+                      style={{
+                        textShadow: "0 0 30px rgba(34,197,94,0.6)",
+                      }}
+                    >
+                      $67
+                    </span>
+                  </div>
+                  <p className="text-white/70 text-xs sm:text-sm mt-3 tracking-wide">
+                    Lock in your spot before this page closes 👇
+                  </p>
+                </div>
+
                 <a
                   href={CHECKOUT_URL}
                   target="_self"
@@ -128,7 +180,7 @@ export default function UpsellPage() {
                     animation: "btnGlow 3s ease-in-out infinite",
                   }}
                 >
-                  YES — UPGRADE MY ACCESS — $197
+                  YES — UPGRADE MY ACCESS FOR $67
                 </a>
                 <p className="text-center text-[10px] text-gray-600 mt-2">
                   One-time payment · Instant access · Lifetime model
@@ -155,6 +207,10 @@ export default function UpsellPage() {
         @keyframes soundPulse {
           0%,100%{transform:scale(1);box-shadow:0 0 30px rgba(124,58,237,0.6),inset 0 1px 0 rgba(255,255,255,0.15)}
           50%{transform:scale(1.04);box-shadow:0 0 50px rgba(124,58,237,0.95),inset 0 1px 0 rgba(255,255,255,0.15)}
+        }
+        @keyframes urgentPulse {
+          0%,100%{box-shadow:0 0 40px rgba(239,68,68,0.35),inset 0 0 20px rgba(239,68,68,0.12)}
+          50%{box-shadow:0 0 60px rgba(239,68,68,0.6),inset 0 0 30px rgba(239,68,68,0.22)}
         }
       `}</style>
     </div>
