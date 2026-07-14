@@ -29,6 +29,11 @@ const crypto = require("crypto");
 const { createClient } = require("@supabase/supabase-js");
 const { Resend } = require("resend");
 
+// SYNC WITH lib/discord.ts DISCORD_INVITE_URL — this script is CJS and
+// can't import from the TS module. If you rotate the community invite,
+// update BOTH this constant AND the export in lib/discord.ts.
+const DISCORD_INVITE_URL = "https://discord.gg/9ZdNpbbfC";
+
 // ---------- env loading (no dotenv dep) ----------
 function loadEnvLocal() {
   const envPath = path.join(__dirname, ".env.local");
@@ -73,7 +78,7 @@ function welcomeEmailHTML(firstName, loginUrl) {
             <div style="text-align:center;">
               <a href="${loginUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-bottom:12px;">Access Your Course →</a>
               <br>
-              <a href="https://discord.gg/9ZdNpbbfC" style="display:inline-block;background-color:#5865F2;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-top:12px;">💬 Join Our Community on Discord</a>
+              <a href="${DISCORD_INVITE_URL}" style="display:inline-block;background-color:#5865F2;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-top:12px;">💬 Join Our Community on Discord</a>
             </div>
 
             <div style="border-top:1px solid #222222;margin-top:40px;padding-top:24px;">
