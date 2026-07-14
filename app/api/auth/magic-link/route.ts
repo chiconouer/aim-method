@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
+import { DISCORD_INVITE_URL } from "@/lib/discord";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
               <div style="text-align:center;">
                 <a href="${verifyUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-bottom:12px;">Access Your Course →</a>
                 <br>
-                <a href="https://discord.gg/9ZdNpbbfC" style="display:inline-block;background-color:#5865F2;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-top:12px;">💬 Join Our Community on Discord</a>
+                <a href="${DISCORD_INVITE_URL}" style="display:inline-block;background-color:#5865F2;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-top:12px;">💬 Join Our Community on Discord</a>
               </div>
 
               <div style="border-top:1px solid #222222;margin-top:40px;padding-top:24px;">
