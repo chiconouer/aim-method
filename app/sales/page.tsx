@@ -16,9 +16,6 @@ declare module "react" {
   }
 }
 
-const REVEAL_TIME = 510;
-const STORAGE_KEY = "aim_sales_visited";
-
 // Heavy local PNGs (5+ MB total) swapped for compressed JPEGs in the
 // QUIZ MEDIA Supabase bucket (the same -2 variants the quiz step-7
 // carousel already uses, so the browser cache may even hit). The
@@ -52,9 +49,6 @@ const FAQS = [
 const HOTMART_URL = "https://pay.hotmart.com/L105642115S?checkoutMode=10&sck=organico";
 
 export default function SalesPage() {
-  const lockedRef = useRef<HTMLDivElement>(null);
-  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
-  const fixedBtnRef = useRef<HTMLDivElement>(null);
   const openFaq = useRef<number | null>(null);
 
   function toggleFaq(idx: number) {
@@ -89,36 +83,6 @@ export default function SalesPage() {
     s.src = "https://scripts.converteai.net/4d9a9882-3537-424b-9e92-d5ef4d59d6a7/players/6a70e8d52082bab248309470/v4/player.js";
     s.async = true;
     document.head.appendChild(s);
-
-    function reveal() {
-      if (lockedRef.current) {
-        lockedRef.current.style.opacity = "1";
-        lockedRef.current.style.maxHeight = "none";
-        lockedRef.current.style.overflow = "visible";
-      }
-      if (scrollIndicatorRef.current) scrollIndicatorRef.current.style.opacity = "1";
-      if (fixedBtnRef.current) fixedBtnRef.current.style.display = "block";
-      localStorage.setItem(STORAGE_KEY, "true");
-      setTimeout(() => window.scrollBy({ top: 120, behavior: "smooth" }), 600);
-    }
-
-    // First visit or return
-    const hasVisited = localStorage.getItem(STORAGE_KEY);
-    if (hasVisited) {
-      reveal();
-      return;
-    }
-
-    // Use Date.now() so browser timer throttling (background tabs) doesn't affect timing
-    const deadline = Date.now() + REVEAL_TIME * 1000;
-    const cd = setInterval(() => {
-      if (Date.now() >= deadline) {
-        clearInterval(cd);
-        reveal();
-      }
-    }, 2000);
-
-    return () => clearInterval(cd);
   }, []);
 
   return (
@@ -213,229 +177,228 @@ export default function SalesPage() {
         />
       </div>
 
-      {/* SCROLL INDICATOR */}
-      <div
-        ref={scrollIndicatorRef}
-        className="flex flex-col items-center gap-1 py-3 transition-opacity duration-1000"
-        style={{ opacity: 0 }}
-      >
-        {[0, 0.2, 0.4].map((delay, i) => (
-          <div
-            key={i}
-            className="w-1 h-1 rounded-full bg-purple-700"
-            style={{ animation: `scrollBounce 1.2s ease-in-out infinite ${delay}s` }}
-          />
-        ))}
-        <span className="text-[8px] text-purple-900 tracking-widest uppercase font-semibold">scroll down</span>
+      {/* PROMO PRICE — VSL audio quotes $29 as the regular price; the
+          relaunch drops to $9.97 and anchors against that $29. Rendered
+          right below the video so the offer is impossible to miss even
+          if the visitor never watches the VSL. */}
+      <div className="mx-4 mt-5">
+        <div
+          className="relative overflow-hidden rounded-2xl p-5 text-center"
+          style={{
+            background: "linear-gradient(135deg,#2d0a6b,#7c3aed,#2d0a6b)",
+            boxShadow: "0 8px 40px rgba(124,58,237,0.55)",
+          }}
+        >
+          <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center,rgba(167,139,250,0.35),transparent 70%)" }} />
+          <div className="relative z-10">
+            <p className="text-[10px] font-black tracking-[0.2em] uppercase text-purple-100 mb-3">🔥 Limited Time Promo</p>
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-2xl font-bold text-purple-200 line-through opacity-70">$29</span>
+              <span className="text-2xl text-white/60">→</span>
+              <span
+                className="text-5xl font-black text-white tracking-tight"
+                style={{ textShadow: "0 2px 20px rgba(255,255,255,0.35)" }}
+              >
+                $9.97
+              </span>
+            </div>
+            <p className="text-[11px] text-purple-100/80 mt-3">One-time payment · Instant access · No subscriptions</p>
+          </div>
+        </div>
+
+        <a
+          href={HOTMART_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mt-3 relative overflow-hidden smartplayer-click-event"
+          style={{
+            background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+            boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
+          }}
+        >
+          Get Instant Access — Only $9.97 →
+        </a>
       </div>
 
-      {/* LOCKED SECTION */}
-      <div
-        ref={lockedRef}
-        style={{ opacity: 0, maxHeight: 0, overflow: "hidden", transition: "opacity 1s ease" }}
-      >
+      {/* STUDENTS */}
+      <div className="flex items-center gap-2 px-5 pt-8 pb-3">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
+        <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">Students Winning</span>
+        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
+      </div>
 
-        {/* CTA BUTTON */}
-        <div className="px-5 pb-5">
+      {/* TICKER */}
+      <div className="relative w-full overflow-hidden py-1" style={{ maskImage: "linear-gradient(90deg, transparent, black 80px, black calc(100% - 80px), transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, black 80px, black calc(100% - 80px), transparent)" }}>
+        <div
+          className="flex gap-3"
+          style={{
+            width: "max-content",
+            animation: "tickerScroll 25s linear infinite",
+          }}
+        >
+          {[...STUDENTS, ...STUDENTS].map((s, i) => (
+            <div
+              key={i}
+              className="flex-shrink-0 w-48 rounded-2xl overflow-hidden border border-white/5 bg-[#0d0d0d]"
+            >
+              <img
+                src={s.image}
+                alt={s.name}
+                loading="lazy"
+                decoding="async"
+                className="w-full object-cover object-top"
+                style={{ height: "180px" }}
+              />
+              <div className="px-3 py-2">
+                <p className="text-[9px] font-black text-purple-500 uppercase tracking-widest mb-1">@{s.name}</p>
+                <p className="text-[9px] text-gray-500 leading-relaxed italic">&ldquo;{s.quote}&rdquo;</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* WHAT YOU GET */}
+      <div className="flex items-center gap-2 px-5 pt-8 pb-3">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
+        <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">What You Get</span>
+        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
+      </div>
+
+      <div className="px-5 mb-5 relative">
+        {/* Neon static border — was infinite conic-gradient animation;
+            removed because conic-gradient repaints can't go to the GPU
+            on WebKit and the per-frame cost on mobile dwarfs the visual
+            gain. Static gradient keeps the same "neon ring" feel. */}
+        <div
+          className="absolute inset-0 rounded-[20px]"
+          style={{
+            padding: "2px",
+            background: "conic-gradient(from 0deg, #7c3aed, #a78bfa, #e9d5ff, #7c3aed)",
+            WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+            WebkitMaskComposite: "xor",
+            maskComposite: "exclude",
+          }}
+        />
+        <div
+          className="relative rounded-[18px] p-5"
+          style={{ background: "linear-gradient(160deg,#0d0a1a,#080810)" }}
+        >
+          <div className="text-center mb-4">
+            <span className="inline-block px-4 py-1 rounded-full text-[9px] font-black tracking-widest uppercase text-white mb-3" style={{ background: "linear-gradient(90deg,#7c3aed,#a78bfa)" }}>
+              ✦ Limited Time: $9.97
+            </span>
+            <div className="text-sm mb-1">⭐⭐⭐⭐⭐</div>
+            <p className="text-sm font-bold text-gray-200">Here&apos;s what you get:</p>
+          </div>
+
+          <div className="flex flex-col gap-3 mb-5">
+            {[
+              { icon: "📈", text: "How the market actually works (and how to start getting results fast)" },
+              { icon: "📱", text: "How to create and warm up your social media accounts the right way" },
+              { icon: "💳", text: "How to set up your Fanvue account and start getting paid" },
+              { icon: "🤖", text: "How to create your AI model in less than 30 minutes" },
+              { icon: "🖼️", text: "How to generate photos and videos of your model in under 2 minutes" },
+              { icon: "👥", text: "How to gain hundreds of targeted followers every single day" },
+              { icon: "💰", text: "How to monetize your AI model step by step" },
+              { icon: "🚀", text: "How to scale your AI model and increase your income" },
+            ].map((item) => (
+              <div key={item.text} className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-purple-900/20 border border-purple-700/25">
+                  {item.icon}
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed pt-1">{item.text}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center py-4 border-t border-purple-900/20 mb-4">
+            <p className="text-[10px] text-gray-600 mb-1">Regular Price: <s>$29</s></p>
+            <p className="text-xl font-black text-white">Today: <span className="text-purple-400">$9.97</span></p>
+          </div>
+
           <a
             href={HOTMART_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="block w-full text-center text-white text-base font-black py-4 rounded-2xl relative overflow-hidden smartplayer-click-event"
+            className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden smartplayer-click-event"
             style={{
               background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
               boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}
           >
-            Get Instant Access — $29 →
+            GET INSTANT ACCESS FOR $9.97 →
           </a>
-          <p className="text-center text-[10px] text-gray-600 mt-2">
-            <s>$297</s> · One-time payment · No subscriptions
-          </p>
+          <p className="text-center text-[9px] text-gray-600 mt-2">🔒 Secure Payment · Instant Access · 100% Risk-Free</p>
         </div>
+      </div>
 
-        {/* STUDENTS */}
-        <div className="flex items-center gap-2 px-5 pb-3">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
-          <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">Students Winning</span>
-          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
-        </div>
+      {/* AI MODELS */}
+      <div className="flex items-center gap-2 px-5 pb-3">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
+        <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">AI Model Examples</span>
+        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
+      </div>
 
-        {/* TICKER */}
-        <div className="relative w-full overflow-hidden py-1" style={{ maskImage: "linear-gradient(90deg, transparent, black 80px, black calc(100% - 80px), transparent)", WebkitMaskImage: "linear-gradient(90deg, transparent, black 80px, black calc(100% - 80px), transparent)" }}>
-          <div
-            className="flex gap-3"
-            style={{
-              width: "max-content",
-              animation: "tickerScroll 25s linear infinite",
-            }}
-          >
-            {[...STUDENTS, ...STUDENTS].map((s, i) => (
-              <div
-                key={i}
-                className="flex-shrink-0 w-48 rounded-2xl overflow-hidden border border-white/5 bg-[#0d0d0d]"
-              >
-                <img
-                  src={s.image}
-                  alt={s.name}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full object-cover object-top"
-                  style={{ height: "180px" }}
-                />
-                <div className="px-3 py-2">
-                  <p className="text-[9px] font-black text-purple-500 uppercase tracking-widest mb-1">@{s.name}</p>
-                  <p className="text-[9px] text-gray-500 leading-relaxed italic">&ldquo;{s.quote}&rdquo;</p>
-                </div>
-              </div>
-            ))}
+      <div className="grid grid-cols-2 gap-3 px-5 mb-5">
+        {MODELS.map((model) => (
+          <div key={model.name} className="relative rounded-2xl overflow-hidden aspect-[3/4] border border-white/5">
+            <img src={model.image} alt={model.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(0,0,0,0.92) 40%,transparent)" }} />
+            <div className="absolute bottom-2 left-3 right-3">
+              <p className="text-sm font-black text-white">{model.name}</p>
+              <p className="text-[10px] text-purple-400 font-bold">{model.earnings}</p>
+              <p className="text-[9px] text-gray-500">{model.followers}</p>
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* WHAT YOU GET */}
-        <div className="flex items-center gap-2 px-5 pb-3">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
-          <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">What You Get</span>
-          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
-        </div>
+      {/* FAQ */}
+      <div className="flex items-center gap-2 px-5 pb-3">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
+        <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">Got Questions?</span>
+        <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
+      </div>
 
-        <div className="px-5 mb-5 relative">
-          {/* Neon static border — was infinite conic-gradient animation;
-              removed because conic-gradient repaints can't go to the GPU
-              on WebKit and the per-frame cost on mobile dwarfs the visual
-              gain. Static gradient keeps the same "neon ring" feel. */}
-          <div
-            className="absolute inset-0 rounded-[20px]"
-            style={{
-              padding: "2px",
-              background: "conic-gradient(from 0deg, #7c3aed, #a78bfa, #e9d5ff, #7c3aed)",
-              WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-              WebkitMaskComposite: "xor",
-              maskComposite: "exclude",
-            }}
-          />
-          <div
-            className="relative rounded-[18px] p-5"
-            style={{ background: "linear-gradient(160deg,#0d0a1a,#080810)" }}
-          >
-            <div className="text-center mb-4">
-              <span className="inline-block px-4 py-1 rounded-full text-[9px] font-black tracking-widest uppercase text-white mb-3" style={{ background: "linear-gradient(90deg,#7c3aed,#a78bfa)" }}>
-                ✦ Limited Time: $29
-              </span>
-              <div className="text-sm mb-1">⭐⭐⭐⭐⭐</div>
-              <p className="text-sm font-bold text-gray-200">Here&apos;s what you get:</p>
+      <div className="px-5 flex flex-col gap-2 mb-6">
+        {FAQS.map((faq, i) => (
+          <div key={i} className="rounded-xl overflow-hidden border border-white/5 bg-[#090909] cursor-pointer" onClick={() => toggleFaq(i)}>
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-xs font-bold text-gray-200 flex-1 mr-2">{faq.q}</p>
+              <span id={`faq-icon-${i}`} className="faq-icon text-purple-500 font-bold text-sm flex-shrink-0" style={{ transition: "transform 0.3s" }}>+</span>
             </div>
-
-            <div className="flex flex-col gap-3 mb-5">
-              {[
-                { icon: "📈", text: "How the market actually works (and how to start getting results fast)" },
-                { icon: "📱", text: "How to create and warm up your social media accounts the right way" },
-                { icon: "💳", text: "How to set up your Fanvue account and start getting paid" },
-                { icon: "🤖", text: "How to create your AI model in less than 30 minutes" },
-                { icon: "🖼️", text: "How to generate photos and videos of your model in under 2 minutes" },
-                { icon: "👥", text: "How to gain hundreds of targeted followers every single day" },
-                { icon: "💰", text: "How to monetize your AI model step by step" },
-                { icon: "🚀", text: "How to scale your AI model and increase your income" },
-              ].map((item) => (
-                <div key={item.text} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 bg-purple-900/20 border border-purple-700/25">
-                    {item.icon}
-                  </div>
-                  <p className="text-[11px] text-gray-400 leading-relaxed pt-1">{item.text}</p>
-                </div>
-              ))}
+            <div id={`faq-body-${i}`} className="faq-body overflow-hidden" style={{ maxHeight: 0, transition: "max-height 0.3s ease" }}>
+              <p className="text-[11px] text-gray-500 leading-relaxed px-4 pb-3">{faq.a}</p>
             </div>
-
-            <div className="text-center py-4 border-t border-purple-900/20 mb-4">
-              <p className="text-[10px] text-gray-600 mb-1">Total Value: <s>$297</s></p>
-              <p className="text-xl font-black text-white">Today: <span className="text-purple-400">$29</span></p>
-            </div>
-
-            <a
-              href={HOTMART_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-center text-white text-sm font-black py-4 rounded-xl relative overflow-hidden smartplayer-click-event"
-              style={{
-                background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-                boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
-              }}
-            >
-              GET INSTANT ACCESS FOR $29 →
-            </a>
-            <p className="text-center text-[9px] text-gray-600 mt-2">🔒 Secure Payment · Instant Access · 100% Risk-Free</p>
           </div>
-        </div>
+        ))}
+      </div>
 
-        {/* AI MODELS */}
-        <div className="flex items-center gap-2 px-5 pb-3">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
-          <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">AI Model Examples</span>
-          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 px-5 mb-5">
-          {MODELS.map((model) => (
-            <div key={model.name} className="relative rounded-2xl overflow-hidden aspect-[3/4] border border-white/5">
-              <img src={model.image} alt={model.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-              <div className="absolute inset-0" style={{ background: "linear-gradient(to top,rgba(0,0,0,0.92) 40%,transparent)" }} />
-              <div className="absolute bottom-2 left-3 right-3">
-                <p className="text-sm font-black text-white">{model.name}</p>
-                <p className="text-[10px] text-purple-400 font-bold">{model.earnings}</p>
-                <p className="text-[9px] text-gray-500">{model.followers}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* FAQ */}
-        <div className="flex items-center gap-2 px-5 pb-3">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-purple-900/50" />
-          <span className="text-[9px] font-black tracking-widest uppercase text-purple-700">Got Questions?</span>
-          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-purple-900/50" />
-        </div>
-
-        <div className="px-5 flex flex-col gap-2 mb-6">
-          {FAQS.map((faq, i) => (
-            <div key={i} className="rounded-xl overflow-hidden border border-white/5 bg-[#090909] cursor-pointer" onClick={() => toggleFaq(i)}>
-              <div className="flex items-center justify-between px-4 py-3">
-                <p className="text-xs font-bold text-gray-200 flex-1 mr-2">{faq.q}</p>
-                <span id={`faq-icon-${i}`} className="faq-icon text-purple-500 font-bold text-sm flex-shrink-0" style={{ transition: "transform 0.3s" }}>+</span>
-              </div>
-              <div id={`faq-body-${i}`} className="faq-body overflow-hidden" style={{ maxHeight: 0, transition: "max-height 0.3s ease" }}>
-                <p className="text-[11px] text-gray-500 leading-relaxed px-4 pb-3">{faq.a}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* FINAL CTA */}
-        <div className="px-5 pb-24 text-center">
-          <p className="text-[9px] text-purple-900 uppercase tracking-widest mb-3">✦ Limited time offer ✦</p>
-          <a
-            href={HOTMART_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mb-3 relative overflow-hidden smartplayer-click-event"
-            style={{
-              background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
-              boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
-            }}
-          >
-            Get Instant Access — $29 →
-          </a>
-          <p className="text-[9px] text-gray-700 leading-relaxed">
-            Disclaimer: Results may vary. This is not a get-rich-quick scheme. Any earnings mentioned are not guaranteed and depend on individual effort, experience, and consistency.
-          </p>
-        </div>
-
+      {/* FINAL CTA */}
+      <div className="px-5 pb-24 text-center">
+        <p className="text-[9px] text-purple-900 uppercase tracking-widest mb-3">✦ Limited time offer ✦</p>
+        <a
+          href={HOTMART_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full text-center text-white text-base font-black py-4 rounded-2xl mb-3 relative overflow-hidden smartplayer-click-event"
+          style={{
+            background: "linear-gradient(135deg,#5b21b6,#7c3aed,#8b5cf6)",
+            boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
+          }}
+        >
+          Get Instant Access — Only $9.97 →
+        </a>
+        <p className="text-[9px] text-gray-700 leading-relaxed">
+          Disclaimer: Results may vary. This is not a get-rich-quick scheme. Any earnings mentioned are not guaranteed and depend on individual effort, experience, and consistency.
+        </p>
       </div>
 
       {/* FIXED BOTTOM */}
       <div
-        ref={fixedBtnRef}
         className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 border-t border-white/5"
-        style={{ background: "rgba(5,5,5,0.97)", backdropFilter: "blur(12px)", display: "none" }}
+        style={{ background: "rgba(5,5,5,0.97)", backdropFilter: "blur(12px)" }}
       >
         <a
           href={HOTMART_URL}
@@ -446,17 +409,13 @@ export default function SalesPage() {
         >
           <span className="text-sm font-black">Get Instant Access</span>
           <span className="flex items-center gap-2">
-            <span className="text-purple-200 line-through text-xs font-normal">$297</span>
-            <span className="text-base font-black">$29 →</span>
+            <span className="text-purple-200 line-through text-xs font-normal">$29</span>
+            <span className="text-base font-black">$9.97 →</span>
           </span>
         </a>
       </div>
 
       <style>{`
-        @keyframes scrollBounce {
-          0%,100%{opacity:0.2;transform:translateY(0)}
-          50%{opacity:1;transform:translateY(4px)}
-        }
         @keyframes tickerScroll {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
