@@ -178,7 +178,7 @@ export default function SalesPage() {
       </div>
 
       {/* PROMO PRICE — VSL audio quotes $29 as the regular price; the
-          relaunch drops to $9.97 and anchors against that $29. Rendered
+          relaunch drops to $9.90 and anchors against that $29. Rendered
           right below the video so the offer is impossible to miss even
           if the visitor never watches the VSL. */}
       <div className="mx-4 mt-5">
@@ -199,7 +199,7 @@ export default function SalesPage() {
                 className="text-5xl font-black text-white tracking-tight"
                 style={{ textShadow: "0 2px 20px rgba(255,255,255,0.35)" }}
               >
-                $9.97
+                $9.90
               </span>
             </div>
             <p className="text-[11px] text-purple-100/80 mt-3">One-time payment · Instant access · No subscriptions</p>
@@ -216,7 +216,7 @@ export default function SalesPage() {
             boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
           }}
         >
-          Get Instant Access — Only $9.97 →
+          Get Instant Access — Only $9.90 →
         </a>
       </div>
 
@@ -286,7 +286,7 @@ export default function SalesPage() {
         >
           <div className="text-center mb-4">
             <span className="inline-block px-4 py-1 rounded-full text-[9px] font-black tracking-widest uppercase text-white mb-3" style={{ background: "linear-gradient(90deg,#7c3aed,#a78bfa)" }}>
-              ✦ Limited Time: $9.97
+              ✦ Limited Time: $9.90
             </span>
             <div className="text-sm mb-1">⭐⭐⭐⭐⭐</div>
             <p className="text-sm font-bold text-gray-200">Here&apos;s what you get:</p>
@@ -314,7 +314,7 @@ export default function SalesPage() {
 
           <div className="text-center py-4 border-t border-purple-900/20 mb-4">
             <p className="text-[10px] text-gray-600 mb-1">Regular Price: <s>$29</s></p>
-            <p className="text-xl font-black text-white">Today: <span className="text-purple-400">$9.97</span></p>
+            <p className="text-xl font-black text-white">Today: <span className="text-purple-400">$9.90</span></p>
           </div>
 
           <a
@@ -327,7 +327,7 @@ export default function SalesPage() {
               boxShadow: "0 8px 40px rgba(124,58,237,0.65), inset 0 1px 0 rgba(255,255,255,0.15)",
             }}
           >
-            GET INSTANT ACCESS FOR $9.97 →
+            GET INSTANT ACCESS FOR $9.90 →
           </a>
           <p className="text-center text-[9px] text-gray-600 mt-2">🔒 Secure Payment · Instant Access · 100% Risk-Free</p>
         </div>
@@ -388,7 +388,7 @@ export default function SalesPage() {
             boxShadow: "0 8px 32px rgba(124,58,237,0.5), inset 0 1px 0 rgba(255,255,255,0.15)",
           }}
         >
-          Get Instant Access — Only $9.97 →
+          Get Instant Access — Only $9.90 →
         </a>
         <p className="text-[9px] text-gray-700 leading-relaxed">
           Disclaimer: Results may vary. This is not a get-rich-quick scheme. Any earnings mentioned are not guaranteed and depend on individual effort, experience, and consistency.
@@ -410,7 +410,7 @@ export default function SalesPage() {
           <span className="text-sm font-black">Get Instant Access</span>
           <span className="flex items-center gap-2">
             <span className="text-purple-200 line-through text-xs font-normal">$29</span>
-            <span className="text-base font-black">$9.97 →</span>
+            <span className="text-base font-black">$9.90 →</span>
           </span>
         </a>
       </div>
