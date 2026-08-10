@@ -16,6 +16,13 @@ declare module "react" {
   }
 }
 
+// Reveal gate — the buy CTAs / promo block / rest of the page stay
+// hidden until REVEAL_TIME (matches the VSL's pitch moment). Second
+// visit (STORAGE_KEY flag in localStorage) skips the wait so buyers
+// who already sat through the video don't get re-gated.
+const REVEAL_TIME = 510;
+const STORAGE_KEY = "aim_sales_visited";
+
 // Heavy local PNGs (5+ MB total) swapped for compressed JPEGs in the
 // QUIZ MEDIA Supabase bucket (the same -2 variants the quiz step-7
 // carousel already uses, so the browser cache may even hit). The
@@ -49,6 +56,9 @@ const FAQS = [
 const HOTMART_URL = "https://pay.hotmart.com/L105642115S?checkoutMode=10&sck=organico";
 
 export default function SalesPage() {
+  const lockedRef = useRef<HTMLDivElement>(null);
+  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
+  const fixedBtnRef = useRef<HTMLDivElement>(null);
   const openFaq = useRef<number | null>(null);
 
   function toggleFaq(idx: number) {
@@ -83,6 +93,36 @@ export default function SalesPage() {
     s.src = "https://scripts.converteai.net/4d9a9882-3537-424b-9e92-d5ef4d59d6a7/players/6a70e8d52082bab248309470/v4/player.js";
     s.async = true;
     document.head.appendChild(s);
+
+    function reveal() {
+      if (lockedRef.current) {
+        lockedRef.current.style.opacity = "1";
+        lockedRef.current.style.maxHeight = "none";
+        lockedRef.current.style.overflow = "visible";
+      }
+      if (scrollIndicatorRef.current) scrollIndicatorRef.current.style.opacity = "1";
+      if (fixedBtnRef.current) fixedBtnRef.current.style.display = "block";
+      localStorage.setItem(STORAGE_KEY, "true");
+      setTimeout(() => window.scrollBy({ top: 120, behavior: "smooth" }), 600);
+    }
+
+    // First visit or return
+    const hasVisited = localStorage.getItem(STORAGE_KEY);
+    if (hasVisited) {
+      reveal();
+      return;
+    }
+
+    // Use Date.now() so browser timer throttling (background tabs) doesn't affect timing
+    const deadline = Date.now() + REVEAL_TIME * 1000;
+    const cd = setInterval(() => {
+      if (Date.now() >= deadline) {
+        clearInterval(cd);
+        reveal();
+      }
+    }, 2000);
+
+    return () => clearInterval(cd);
   }, []);
 
   return (
@@ -176,6 +216,34 @@ export default function SalesPage() {
           }}
         />
       </div>
+
+      {/* SCROLL INDICATOR — hidden until reveal(), then fades in to nudge
+          the visitor down toward the freshly-revealed CTA / promo block. */}
+      <div
+        ref={scrollIndicatorRef}
+        className="flex flex-col items-center gap-1 py-3 transition-opacity duration-1000"
+        style={{ opacity: 0 }}
+      >
+        {[0, 0.2, 0.4].map((delay, i) => (
+          <div
+            key={i}
+            className="w-1 h-1 rounded-full bg-purple-700"
+            style={{ animation: `scrollBounce 1.2s ease-in-out infinite ${delay}s` }}
+          />
+        ))}
+        <span className="text-[8px] text-purple-900 tracking-widest uppercase font-semibold">scroll down</span>
+      </div>
+
+      {/* LOCKED SECTION — everything below the video (promo block, CTAs,
+          ticker, "what you get", FAQ, final CTA) stays hidden until
+          REVEAL_TIME elapses on first visit, or immediately on return
+          visits (aim_sales_visited flag in localStorage). Gated to the
+          VSL pitch moment so buyers hear the offer before seeing the
+          price. */}
+      <div
+        ref={lockedRef}
+        style={{ opacity: 0, maxHeight: 0, overflow: "hidden", transition: "opacity 1s ease" }}
+      >
 
       {/* PROMO PRICE — VSL audio quotes $29 as the regular price; the
           relaunch drops to $9.90 and anchors against that $29. Rendered
@@ -395,10 +463,13 @@ export default function SalesPage() {
         </p>
       </div>
 
+      </div>
+
       {/* FIXED BOTTOM */}
       <div
+        ref={fixedBtnRef}
         className="fixed bottom-0 left-0 right-0 z-50 px-4 py-3 border-t border-white/5"
-        style={{ background: "rgba(5,5,5,0.97)", backdropFilter: "blur(12px)" }}
+        style={{ background: "rgba(5,5,5,0.97)", backdropFilter: "blur(12px)", display: "none" }}
       >
         <a
           href={HOTMART_URL}
@@ -416,6 +487,10 @@ export default function SalesPage() {
       </div>
 
       <style>{`
+        @keyframes scrollBounce {
+          0%,100%{opacity:0.2;transform:translateY(0)}
+          50%{opacity:1;transform:translateY(4px)}
+        }
         @keyframes tickerScroll {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
