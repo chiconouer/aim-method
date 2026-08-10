@@ -18,7 +18,7 @@
 //       ever rotate the invite, update BOTH this constant and
 //       the DISCORD_INVITE_URL literal at the top of grant-access.js.
 // =============================================================
-export const DISCORD_INVITE_URL = "https://discord.gg/9ZdNpbbfC";
+export const DISCORD_INVITE_URL = "https://discord.gg/MqpBq3CshD";
 
 export async function postToDiscordWebhook(webhookUrl: string, content: string): Promise<void> {
   const response = await fetch(webhookUrl, {
