@@ -32,7 +32,7 @@ const { Resend } = require("resend");
 // SYNC WITH lib/discord.ts DISCORD_INVITE_URL — this script is CJS and
 // can't import from the TS module. If you rotate the community invite,
 // update BOTH this constant AND the export in lib/discord.ts.
-const DISCORD_INVITE_URL = "https://discord.gg/9ZdNpbbfC";
+const DISCORD_INVITE_URL = "https://discord.gg/MqpBq3CshD";
 
 // ---------- env loading (no dotenv dep) ----------
 function loadEnvLocal() {
