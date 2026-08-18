@@ -572,7 +572,15 @@ export async function POST(req: NextRequest) {
     }
 
     const amountCents = rawAmount ? Math.round(Number(rawAmount) * 100) : 0;
-    const occurredAt = occurredAtRaw || new Date().toISOString();
+    // Hotmart sends approved_date as epoch-milliseconds (e.g. "1787007058000").
+    // Postgres rejects raw epoch integers as timestamps with code 22008
+    // (datetime_field_overflow), so coerce numeric strings to ISO here.
+    // Falls through to as-is for anything that already looks like a date
+    // string, and to now() when the field is missing entirely.
+    const occurredAt =
+      occurredAtRaw && /^\d+$/.test(occurredAtRaw)
+        ? new Date(Number(occurredAtRaw)).toISOString()
+        : (occurredAtRaw || new Date().toISOString());
 
     if (!txId) {
       // Hotmart test postbacks frequently omit transaction IDs; we can't
