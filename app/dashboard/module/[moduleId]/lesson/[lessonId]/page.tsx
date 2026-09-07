@@ -13,6 +13,10 @@ import { getLesson, getAdjacentLessons, getModule } from "@/lib/courseData";
 import { QuizCTA } from "@/components/QuizCTA";
 import { CourseNavSidebar } from "@/components/CourseNavSidebar";
 
+// Flip to true when 1-on-1 coaching spots reopen.
+const ONE_ON_ONE_OPEN = false;
+const ONE_ON_ONE_APPLY_URL = "/apply";
+
 export default function LessonPage() {
   const router = useRouter();
   const params = useParams();
@@ -139,16 +143,34 @@ export default function LessonPage() {
         {/* Resource link (e.g. NSFW content examples for M4L4) */}
         {lesson.resourceLink && (
           <div className="text-center mb-6">
-            <a
-              href={lesson.resourceLink.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block bg-[#8b5cf6] text-white font-bold px-8 py-3 rounded-xl text-sm hover:bg-purple-500 transition-colors"
-            >
-              {lesson.resourceLink.label}
-            </a>
-            {lesson.resourceLink.warning && (
-              <p className="text-gray-500 text-xs mt-2">{lesson.resourceLink.warning}</p>
+            {lesson.resourceLink.url === ONE_ON_ONE_APPLY_URL && !ONE_ON_ONE_OPEN ? (
+              <>
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  className="inline-block w-full sm:w-auto bg-white/10 text-gray-400 font-bold px-8 py-3 rounded-xl text-sm opacity-60 cursor-not-allowed select-none"
+                >
+                  1-on-1 Spots Full
+                </button>
+                <p className="text-gray-500 text-xs sm:text-sm mt-3 max-w-sm mx-auto px-2 leading-relaxed">
+                  All 1-on-1 coaching spots are currently filled. Check back soon — new spots open up periodically.
+                </p>
+              </>
+            ) : (
+              <>
+                <a
+                  href={lesson.resourceLink.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block bg-[#8b5cf6] text-white font-bold px-8 py-3 rounded-xl text-sm hover:bg-purple-500 transition-colors"
+                >
+                  {lesson.resourceLink.label}
+                </a>
+                {lesson.resourceLink.warning && (
+                  <p className="text-gray-500 text-xs mt-2">{lesson.resourceLink.warning}</p>
+                )}
+              </>
             )}
           </div>
         )}
