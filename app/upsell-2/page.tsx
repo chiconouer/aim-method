@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Black-hat $67 checkout (was $197) — Hotmart product U106013301D,
+// Black-hat $39.90 checkout (was $197) — Hotmart product U106013301D,
 // offer l3jwqomo. Offer code unchanged; Hotmart is configured with
 // the new price on their side. If you want to revert to $197 you
 // only need to swap the price back in the JSX below + the scarcity
@@ -161,7 +161,7 @@ export default function UpsellPage() {
                         textShadow: "0 0 30px rgba(34,197,94,0.6)",
                       }}
                     >
-                      $67
+                      $39.90
                     </span>
                   </div>
                   <p className="text-white/70 text-xs sm:text-sm mt-3 tracking-wide">
@@ -180,7 +180,7 @@ export default function UpsellPage() {
                     animation: "btnGlow 3s ease-in-out infinite",
                   }}
                 >
-                  YES — UPGRADE MY ACCESS FOR $67
+                  YES — UPGRADE MY ACCESS FOR $39.90
                 </a>
                 <p className="text-center text-[10px] text-gray-600 mt-2">
                   One-time payment · Instant access · Lifetime model
