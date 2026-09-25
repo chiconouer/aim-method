@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
 import { notifySale } from "@/lib/notifySale";
 import { insertUserWithSource } from "@/lib/insertUserWithSource";
+import { notifyMagicLinkFailure } from "@/lib/notifyMagicLinkFailure";
 import { DISCORD_INVITE_URL } from "@/lib/discord";
 
 const resend = new Resend(process.env.RESEND_API_KEY!);
@@ -510,10 +511,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (linkError) {
-      console.error(
-        `[hotmart-webhook] magic link insert FAILED email=${normalizedEmail} err=${linkError.message}`,
-      );
-      // User was created — don't fail the webhook, but the button will 404 when clicked
+      // User was created — don't fail the webhook, but the login button will
+      // 404 when clicked. Alert loudly (console + Discord) so we can recover
+      // the buyer immediately instead of waiting for a support complaint.
+      await notifyMagicLinkFailure({
+        channel: "hotmart",
+        email: normalizedEmail,
+        error: linkError,
+      });
     }
 
     const loginUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;

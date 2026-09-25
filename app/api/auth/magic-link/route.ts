@@ -26,7 +26,12 @@ export async function POST(req: NextRequest) {
   }
 
   const token = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  // 30-day expiry — matches the welcome-email magic link lifetime used by the
+  // Hotmart/Stripe/Digistore/PerfectPay webhooks. The old 15-minute window was
+  // far too short: combined with email delivery latency and corporate mail
+  // scanning, re-requested links were routinely expired (or consumed) by the
+  // time the buyer actually clicked them.
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
   const { error: insertError } = await supabaseAdmin
     .from("magic_links")
@@ -58,7 +63,7 @@ export async function POST(req: NextRequest) {
             <div style="padding:40px 36px;">
 
               <h1 style="font-size:24px;font-weight:800;color:#8b5cf6;margin:0 0 6px;">Your Login Link</h1>
-              <p style="font-size:15px;color:#9ca3af;margin:0 0 32px;">Hi ${user.name}, click below to sign in. This link expires in <strong style="color:#ffffff;">15 minutes</strong> and can only be used once.</p>
+              <p style="font-size:15px;color:#9ca3af;margin:0 0 32px;">Hi ${user.name}, click below to sign in. This link expires in <strong style="color:#ffffff;">30 days</strong> and can only be used once.</p>
 
               <div style="text-align:center;">
                 <a href="${verifyUrl}" style="display:inline-block;background-color:#8b5cf6;color:#ffffff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;text-decoration:none;margin-bottom:12px;">Access Your Course →</a>

@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyMagicLinkFailure } from "@/lib/notifyMagicLinkFailure";
 import { notifySale } from "@/lib/notifySale";
 import { insertUserWithSource } from "@/lib/insertUserWithSource";
 import { DISCORD_INVITE_URL } from "@/lib/discord";
@@ -90,8 +91,13 @@ export async function POST(req: NextRequest) {
     expires_at: expiresAt,
   });
   if (linkError) {
-    console.error("[perfectpay-affiliate] Failed to create magic link:", linkError);
-    // Don't fail — user was created; let support handle if email fails too
+    // Don't fail — user was created; alert loudly so support can recover the
+    // buyer immediately instead of waiting for a complaint.
+    await notifyMagicLinkFailure({
+      channel: "perfectpay",
+      email: normalizedEmail,
+      error: linkError,
+    });
   }
 
   const loginUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;
