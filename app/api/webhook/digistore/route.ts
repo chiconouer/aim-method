@@ -40,6 +40,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyMagicLinkFailure } from "@/lib/notifyMagicLinkFailure";
 import { notifySale } from "@/lib/notifySale";
 import { insertUserWithSource } from "@/lib/insertUserWithSource";
 import { DISCORD_INVITE_URL } from "@/lib/discord";
@@ -371,7 +372,7 @@ async function provisionCourseAccess({
     expires_at: expiresAt,
   });
   if (linkError) {
-    console.error("[digistore-webhook] magic_link insert error:", linkError);
+    await notifyMagicLinkFailure({ channel: "digistore", email, error: linkError });
   }
 
   const loginUrl = `https://course.aimodelmethods.com/api/auth/verify?token=${token}`;

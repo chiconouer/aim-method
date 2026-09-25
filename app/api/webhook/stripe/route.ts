@@ -14,6 +14,7 @@ import Stripe from "stripe";
 import { Resend } from "resend";
 import stripe from "@/lib/stripe";
 import { supabaseAdmin } from "@/lib/supabase";
+import { notifyMagicLinkFailure } from "@/lib/notifyMagicLinkFailure";
 import { notifySale } from "@/lib/notifySale";
 import { insertUserWithSource } from "@/lib/insertUserWithSource";
 import { DISCORD_INVITE_URL } from "@/lib/discord";
@@ -230,8 +231,12 @@ async function provisionAccess({
     expires_at: expiresAt,
   });
   if (linkError) {
-    console.error("[stripe webhook] magic_link insert error:", linkError);
-    // continue — try email anyway
+    // continue — try email anyway, but alert loudly so we can recover the buyer.
+    await notifyMagicLinkFailure({
+      channel: "stripe",
+      email: normalizedEmail,
+      error: linkError,
+    });
   }
 
   // 3. Record the sale (parity with the Hotmart webhook). Reuses the
